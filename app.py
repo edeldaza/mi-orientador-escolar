@@ -1,77 +1,49 @@
 import streamlit as st
 import google.generativeai as genai
 
-# --- CONFIGURACIÓN DE LA PÁGINA ---
-st.set_page_config(
-    page_title="Orientador Escolar",
-    page_icon="🎓",
-    layout="centered"
-)
-
-# --- TÍTULO Y ADVERTENCIA LEGAL ---
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="Orientador Escolar", page_icon="🎓")
 st.title("🎓 Espacio de Escucha Escolar")
-st.markdown("""
-    *Bienvenido. Este es un espacio seguro para expresarte.*
-    
-    ⚠️ **Importante:** Soy una Inteligencia Artificial, no un humano. 
-    **Si estás en peligro inmediato, por favor busca a un profesor o adulto de confianza.**
-""")
+st.markdown("Bienvenido. Soy una IA diseñada para escucharte y orientarte.")
+st.warning("⚠️ Recuerda: No soy humano. Si estás en peligro, busca a un profesor.")
 
-# --- CONEXIÓN CON LA IA ---
+# --- CONEXIÓN ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-    # Usamos el modelo Flash: es el más rápido y eficiente para chat
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    # CORRECCIÓN AQUÍ: Usamos el nombre que SÍ aparece en tu lista
+    model = genai.GenerativeModel('gemini-flash-latest')
+    
 except Exception as e:
-    st.error("Error de conexión. Verifica la API Key.")
+    st.error(f"Error de configuración: {e}")
     st.stop()
 
-# --- PERSONALIDAD DEL ORIENTADOR (SYSTEM PROMPT) ---
-instrucciones = """
-ROL: Eres un consejero escolar virtual para una institución educativa.
-TONO: Empático, paciente, juvenil pero respetuoso. Nunca juzgues.
-
-PROTOCOLOS DE SEGURIDAD (ESTRICTO):
-1. Si el alumno menciona SUICIDIO, AUTOLESIONES, ABUSO o VIOLENCIA:
-   - DEBES responder con este mensaje exacto: 
-     "🚨 Siento mucho que estés pasando por esto. Es una situación muy delicada y necesitas apoyo humano real. Por favor, acércate YA MISMO al profesor titular o llama a la línea de ayuda 123. No estás solo/a."
-   - NO intentes solucionar tú la crisis.
-   
-2. Para problemas académicos o sociales:
-   - Escucha primero.
-   - Valida la emoción ("Entiendo que te sientas frustrado...").
-   - Da un consejo breve y práctico.
-"""
-
-# --- GESTIÓN DEL CHAT ---
+# --- CHAT ---
 if "mensajes" not in st.session_state:
     st.session_state.mensajes = []
 
-# Mostrar historial
-for mensaje in st.session_state.mensajes:
-    with st.chat_message(mensaje["role"]):
-        st.markdown(mensaje["content"])
+for m in st.session_state.mensajes:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
 
-# --- INTERACCIÓN ---
-if texto_alumno := st.chat_input("Escribe aquí lo que sientes..."):
-    
-    # 1. Guardar mensaje del alumno
-    st.session_state.mensajes.append({"role": "user", "content": texto_alumno})
+if texto := st.chat_input("Cuéntame, ¿cómo te sientes?"):
+    # Guardar mensaje usuario
+    st.session_state.mensajes.append({"role": "user", "content": texto})
     with st.chat_message("user"):
-        st.markdown(texto_alumno)
+        st.markdown(texto)
 
-    # 2. Generar respuesta
+    # Respuesta IA
     try:
         chat = model.start_chat(history=[])
-        prompt_final = f"Instrucciones del sistema: {instrucciones}\n\nMensaje del alumno: {texto_alumno}"
+        prompt = f"Actúa como un orientador escolar empático. Mensaje del alumno: {texto}"
         
-        respuesta = chat.send_message(prompt_final)
+        respuesta = chat.send_message(prompt)
         
-        # 3. Guardar respuesta de la IA
+        # Guardar respuesta IA
         st.session_state.mensajes.append({"role": "assistant", "content": respuesta.text})
         with st.chat_message("assistant"):
             st.markdown(respuesta.text)
             
     except Exception as e:
-        st.error(f"Hubo un error momentáneo. Por favor intenta de nuevo. (Error: {e})")
+        st.error(f"❌ Error: {e}")
