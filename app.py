@@ -49,4 +49,4 @@ if texto_alumno := st.chat_input("Escribe aquí lo que sientes..."):
         with st.chat_message("assistant"):
             st.markdown(respuesta.text)
     except Exception as e:
-        st.error("Hubo un error de conexión. Intenta de nuevo.")
+    st.error(f"El error real es: {e}")
