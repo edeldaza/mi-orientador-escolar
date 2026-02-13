@@ -16,7 +16,7 @@ try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
     # CAMBIO IMPORTANTE: Usamos 'gemini-pro' que es más compatible
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
     st.error("⚠️ Error: No se encontró la API Key. Configúrala en 'Secrets'.")
     st.stop()
