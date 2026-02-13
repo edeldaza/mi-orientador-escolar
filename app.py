@@ -15,11 +15,17 @@ st.markdown("""
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-    # CAMBIO IMPORTANTE: Usamos 'gemini-pro' que es más compatible
-    model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
     st.error("⚠️ Error: No se encontró la API Key. Configúrala en 'Secrets'.")
     st.stop()
+
+# --- SELECCIÓN DEL MODELO (INTELIGENTE) ---
+# Intentamos usar el modelo rápido. Si falla, avisamos.
+nombre_modelo = 'gemini-1.5-flash'
+try:
+    model = genai.GenerativeModel(nombre_modelo)
+except Exception:
+    st.error("Error al cargar el modelo. Verifica requirements.txt")
 
 # --- INSTRUCCIONES DE PERSONALIDAD ---
 instrucciones = """
@@ -50,10 +56,10 @@ if texto_alumno := st.chat_input("Escribe aquí lo que sientes..."):
     # 2. Generar respuesta
     try:
         chat = model.start_chat(history=[])
-        # Gemini Pro prefiere recibir el prompt así:
-        prompt_completo = f"Instrucciones del sistema: {instrucciones}\n\nMensaje del alumno: {texto_alumno}"
+        # Enviamos instrucciones + mensaje
+        prompt_final = f"Instrucciones del sistema: {instrucciones}\n\nMensaje del usuario: {texto_alumno}"
         
-        respuesta = chat.send_message(prompt_completo)
+        respuesta = chat.send_message(prompt_final)
         
         # 3. Guardar y mostrar respuesta de la IA
         st.session_state.mensajes.append({"role": "assistant", "content": respuesta.text})
@@ -62,3 +68,4 @@ if texto_alumno := st.chat_input("Escribe aquí lo que sientes..."):
             
     except Exception as e:
         st.error(f"Ocurrió un error: {e}")
+        st.info("💡 Si ves un error 404, necesitas actualizar el archivo 'requirements.txt' en GitHub y Reiniciar la App.")
