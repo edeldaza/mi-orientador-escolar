@@ -11,8 +11,10 @@ st.warning("⚠️ Recuerda: No soy humano. Si estás en peligro, busca a un pro
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-    # Usamos la versión más estable del modelo Flash
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    # CORRECCIÓN AQUÍ: Usamos el nombre que SÍ aparece en tu lista
+    model = genai.GenerativeModel('gemini-flash-latest')
+    
 except Exception as e:
     st.error(f"Error de configuración: {e}")
     st.stop()
@@ -26,7 +28,7 @@ for m in st.session_state.mensajes:
         st.markdown(m["content"])
 
 if texto := st.chat_input("Cuéntame, ¿cómo te sientes?"):
-    # Guardar usuario
+    # Guardar mensaje usuario
     st.session_state.mensajes.append({"role": "user", "content": texto})
     with st.chat_message("user"):
         st.markdown(texto)
@@ -38,11 +40,10 @@ if texto := st.chat_input("Cuéntame, ¿cómo te sientes?"):
         
         respuesta = chat.send_message(prompt)
         
-        # Guardar IA
+        # Guardar respuesta IA
         st.session_state.mensajes.append({"role": "assistant", "content": respuesta.text})
         with st.chat_message("assistant"):
             st.markdown(respuesta.text)
             
     except Exception as e:
-        # AQUÍ ESTÁ LA CLAVE: Mostramos el error real para saber qué pasa
-        st.error(f"❌ Error detallado: {e}")
+        st.error(f"❌ Error: {e}")
