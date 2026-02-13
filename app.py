@@ -1,19 +1,22 @@
 import streamlit as st
 import google.generativeai as genai
-import os
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Orientador Escolar", page_icon="🎓")
 
 st.title("🎓 Espacio de Escucha Escolar")
-st.write("Bienvenido. Soy un asistente virtual diseñado para escucharte y orientarte.")
-st.info("⚠️ Recuerda: Soy una IA, no un humano. Si estás en peligro, busca a un profesor inmediatamente.")
+st.markdown("""
+    Bienvenido. Soy un asistente virtual diseñado para escucharte y orientarte.
+    
+    ⚠️ **Importante:** Soy una IA, no un humano. Si estás en peligro, busca a un profesor inmediatamente.
+""")
 
 # --- CONEXIÓN CON LA IA ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # CAMBIO IMPORTANTE: Usamos 'gemini-pro' que es más compatible
+    model = genai.GenerativeModel('gemini-pro')
 except Exception as e:
     st.error("⚠️ Error: No se encontró la API Key. Configúrala en 'Secrets'.")
     st.stop()
@@ -44,10 +47,13 @@ if texto_alumno := st.chat_input("Escribe aquí lo que sientes..."):
     with st.chat_message("user"):
         st.markdown(texto_alumno)
 
-    # 2. Generar respuesta (BLOQUE TRY-EXCEPT CORREGIDO)
+    # 2. Generar respuesta
     try:
         chat = model.start_chat(history=[])
-        respuesta = chat.send_message(f"Instrucciones: {instrucciones}\n\nMensaje alumno: {texto_alumno}")
+        # Gemini Pro prefiere recibir el prompt así:
+        prompt_completo = f"Instrucciones del sistema: {instrucciones}\n\nMensaje del alumno: {texto_alumno}"
+        
+        respuesta = chat.send_message(prompt_completo)
         
         # 3. Guardar y mostrar respuesta de la IA
         st.session_state.mensajes.append({"role": "assistant", "content": respuesta.text})
@@ -55,5 +61,4 @@ if texto_alumno := st.chat_input("Escribe aquí lo que sientes..."):
             st.markdown(respuesta.text)
             
     except Exception as e:
-        # Aquí estaba el error de indentación. Ahora está alineado correctamente.
         st.error(f"Ocurrió un error: {e}")
