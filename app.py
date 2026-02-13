@@ -48,5 +48,6 @@ if texto_alumno := st.chat_input("Escribe aquí lo que sientes..."):
         st.session_state.mensajes.append({"role": "assistant", "content": respuesta.text})
         with st.chat_message("assistant"):
             st.markdown(respuesta.text)
-    except Exception as e:
-    st.error(f"El error real es: {e}")
+except Exception as e:
+        # Fíjate que esta línea de abajo tiene 4 espacios al inicio
+        st.error(f"El error real es: {e}")
