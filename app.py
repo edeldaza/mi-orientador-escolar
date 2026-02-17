@@ -4,96 +4,80 @@ from gtts import gTTS
 from io import BytesIO
 import base64
 
-# --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Orientación I.E.R. Hugues Manuel Lacouture", page_icon="🎓", layout="wide")
+# --- 1. CONFIGURACIÓN ---
+st.set_page_config(
+    page_title="Orientación I.E.R. Hugues Manuel Lacouture",
+    page_icon="🎓",
+    layout="wide"
+)
 
-# --- IMÁGENES ---
+# --- 2. IMÁGENES ---
 URL_CERRADA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.png?raw=true"
 URL_ABIERTA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
 URL_ESCUDO = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima3.png?raw=true"
 
-# --- ENCABEZADO ---
+# --- 3. DISEÑO INSTITUCIONAL ---
+st.markdown("""
+    <style>
+        .header {
+            text-align: center;
+            padding: 20px;
+            background-color: #f4f6f9;
+            border-radius: 15px;
+            border-bottom: 5px solid #003366;
+            margin-bottom: 20px;
+        }
+        .title-text {
+            color: #003366;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 st.markdown(f"""
-    <div style="text-align: center; padding: 20px; background-color: #f4f6f9; border-bottom: 5px solid #003366; margin-bottom: 20px; border-radius: 15px;">
+    <div class="header">
         <img src="{URL_ESCUDO}" width="100">
-        <h2 style="color: #003366; text-transform: uppercase;">Institución Educativa Rural<br>Hugues Manuel Lacouture</h2>
+        <div class="title-text">Institución Educativa Rural<br>Hugues Manuel Lacouture</div>
         <p>🎓 Portal de Orientación Escolar 🎓</p>
     </div>
 """, unsafe_allow_html=True)
 
-# --- BARRA LATERAL ---
+# --- 4. BARRA LATERAL ---
 with st.sidebar:
     st.image(URL_ESCUDO, width=80)
+    st.write("---")
     modo_voz = st.checkbox("🔊 Activar Voz", value=True)
-    st.divider()
+    st.info("Sistema exclusivo para estudiantes.")
     
-    # --- ZONA DE DIAGNÓSTICO (ESTO TE DIRÁ QUÉ PASA) ---
-    st.write("🔍 **Diagnóstico de Modelos:**")
-    model_name_used = "Ninguno"
+    # --- DIAGNÓSTICO (Para que sepas qué modelo usa) ---
+    st.divider()
+    modelo_actual = st.empty()
 
-# --- LÓGICA DE CONEXIÓN "DETECTIVE" ---
-def get_working_model():
-    try:
-        api_key = st.secrets["GOOGLE_API_KEY"]
-        genai.configure(api_key=api_key)
-        
-        # 1. PREGUNTAR A GOOGLE QUÉ MODELOS TIENE
-        all_models = list(genai.list_models())
-        
-        # 2. FILTRAR LOS QUE SIRVEN PARA CHAT
-        chat_models = []
-        for m in all_models:
-            if 'generateContent' in m.supported_generation_methods:
-                chat_models.append(m.name)
-        
-        # Mostrar lista en sidebar para debug
-        with st.sidebar:
-            st.code(chat_models)
-
-        # 3. ELEGIR EL MEJOR DISPONIBLE
-        # Buscamos 'flash' primero, luego 'pro', luego cualquiera
-        chosen = None
-        for m in chat_models:
-            if 'flash' in m:
-                chosen = m
-                break
-        if not chosen:
-            for m in chat_models:
-                if 'pro' in m:
-                    chosen = m
-                    break
-        if not chosen and chat_models:
-            chosen = chat_models[0] # El primero que haya
-            
-        return genai.GenerativeModel(chosen), chosen
-
-    except Exception as e:
-        st.sidebar.error(f"Error listando: {e}")
-        return None, str(e)
-
-# Conectar
-model, model_name_used = get_working_model()
-with st.sidebar:
-    if model:
-        st.success(f"✅ Usando: {model_name_used}")
-    else:
-        st.error("❌ No se encontró ningún modelo.")
-
-# --- AVATAR ---
+# --- 5. FUNCIÓN AVATAR ---
 def mostrar_avatar(texto, audio_bytes):
     b64_audio = ""
     if audio_bytes:
         b64_audio = base64.b64encode(audio_bytes.read()).decode()
+
     html = f"""
-    <div style="background: white; padding: 10px; border-radius: 15px; text-align: center;">
+    <div style="background: white; padding: 10px; border-radius: 15px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
         <div style="position: relative; width: 180px; height: 240px; margin: 0 auto;">
-            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('{URL_CERRADA}'); background-size: contain; background-repeat: no-repeat; background-position: center;"></div>
-            <div id="mouth" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('{URL_ABIERTA}'); background-size: contain; background-repeat: no-repeat; background-position: center; opacity: 0; transition: opacity 0.1s;"></div>
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+                        background-image: url('{URL_CERRADA}'); background-size: contain; background-repeat: no-repeat; background-position: center;"></div>
+            <div id="mouth" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+                        background-image: url('{URL_ABIERTA}'); background-size: contain; background-repeat: no-repeat; background-position: center;
+                        opacity: 0; transition: opacity 0.1s;"></div>
         </div>
-        <audio id="player" autoplay style="display: none;"><source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3"></audio>
+        <audio id="player" autoplay style="display: none;">
+            <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
+        </audio>
     </div>
     <script>
-        var p = document.getElementById("player"), m = document.getElementById("mouth"), i;
+        var p = document.getElementById("player");
+        var m = document.getElementById("mouth");
+        var i;
         p.onplay = () => {{ i = setInterval(() => {{ m.style.opacity = (m.style.opacity == "0" ? "1" : "0"); }}, 200); }};
         p.onended = () => {{ clearInterval(i); m.style.opacity = "0"; }};
         p.play();
@@ -101,7 +85,41 @@ def mostrar_avatar(texto, audio_bytes):
     """
     return html
 
-# --- CHAT ---
+# --- 6. CONEXIÓN SEGURA (AQUÍ ESTÁ EL ARREGLO) ---
+def conectar_ia_segura():
+    try:
+        api_key = st.secrets["GOOGLE_API_KEY"]
+        genai.configure(api_key=api_key)
+        
+        # INTENTO 1: FORZAR GEMINI 1.5 FLASH (El de 1500 peticiones)
+        # OJO: NO usamos 'list_models' para que no se equivoque con el 2.5
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            # Prueba de vida
+            model.generate_content("Hola", generation_config={"max_output_tokens": 1})
+            return model, "Gemini 1.5 Flash (Rápido)"
+        except:
+            # Si falla (error 404), vamos al PRO (El viejo confiable)
+            try:
+                model = genai.GenerativeModel('gemini-pro')
+                model.generate_content("Hola", generation_config={"max_output_tokens": 1})
+                return model, "Gemini Pro (Estándar)"
+            except:
+                return None, "Error Crítico"
+
+    except Exception as e:
+        return None, str(e)
+
+model, nombre_modelo = conectar_ia_segura()
+
+# Mostrar en sidebar cuál está usando
+with st.sidebar:
+    if "Error" in nombre_modelo:
+        st.error(f"Estado: {nombre_modelo}")
+    else:
+        st.success(f"Conectado a: {nombre_modelo}")
+
+# --- 7. CHAT ---
 if "mensajes" not in st.session_state:
     st.session_state.mensajes = []
 
@@ -112,13 +130,19 @@ for m in st.session_state.mensajes:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
+# --- 8. RESPUESTA ---
 if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user":
     if model:
-        with st.spinner("Pensando..."):
+        with st.spinner("El orientador está pensando..."):
             try:
                 chat = model.start_chat(history=[])
-                resp = chat.send_message(f"Actúa como orientador escolar empático. Mensaje: {st.session_state.mensajes[-1]['content']}")
-                texto_resp = resp.text
+                prompt = f"""
+                Eres el Orientador Escolar de la Institución Educativa Rural Hugues Manuel Lacouture.
+                Responde breve y amablemente (máx 2 frases).
+                Mensaje: {st.session_state.mensajes[-1]['content']}
+                """
+                response = chat.send_message(prompt)
+                texto_resp = response.text
                 
                 st.session_state.mensajes.append({"role": "assistant", "content": texto_resp})
                 with st.chat_message("assistant"):
@@ -126,13 +150,17 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
                 
                 if modo_voz:
                     tts = gTTS(text=texto_resp, lang='es')
-                    ab = BytesIO()
-                    tts.write_to_fp(ab)
-                    ab.seek(0)
-                    html = mostrar_avatar(texto_resp, ab)
+                    audio_buffer = BytesIO()
+                    tts.write_to_fp(audio_buffer)
+                    audio_buffer.seek(0)
+                    html_avatar = mostrar_avatar(texto_resp, audio_buffer)
                     with st.sidebar:
-                        st.components.v1.html(html, height=320)
+                        st.components.v1.html(html_avatar, height=320)
+                        
             except Exception as e:
-                st.error(f"Error: {e}")
+                if "429" in str(e):
+                    st.warning("⚠️ Límite alcanzado. Espera 1 minuto.")
+                else:
+                    st.error(f"Error técnico: {e}")
     else:
-        st.error("No hay conexión con IA.")
+        st.error("⚠️ No se pudo conectar con Google. Revisa tu API Key.")
