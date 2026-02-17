@@ -4,19 +4,19 @@ from gtts import gTTS
 from io import BytesIO
 import base64
 
-# --- 1. CONFIGURACIÓN ---
+# --- 1. CONFIGURACI脫N ---
 st.set_page_config(
-    page_title="Orientación I.E.R. Hugues Manuel Lacouture",
-    page_icon="🎓",
+    page_title="Orientaci贸n I.E.R. Hugues Manuel Lacouture",
+    page_icon="馃帗",
     layout="wide"
 )
 
-# --- 2. IMÁGENES ---
+# --- 2. IM脕GENES ---
 URL_CERRADA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.png?raw=true"
 URL_ABIERTA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
 URL_ESCUDO = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima3.png?raw=true"
 
-# --- 3. DISEÑO ---
+# --- 3. DISE脩O ---
 st.markdown("""
     <style>
         .header {
@@ -39,12 +39,19 @@ st.markdown("""
 st.markdown(f"""
     <div class="header">
         <img src="{URL_ESCUDO}" width="100">
-        <div class="title-text">Institución Educativa Rural<br>Hugues Manuel Lacouture</div>
-        <p>🎓 Portal de Orientación Escolar 🎓</p>
+        <div class="title-text">Instituci贸n Educativa Rural<br>Hugues Manuel Lacouture</div>
+        <p>馃帗 Portal de Orientaci贸n Escolar 馃帗</p>
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. FUNCIÓN AVATAR ---
+# --- 4. BARRA LATERAL ---
+with st.sidebar:
+    st.image(URL_ESCUDO, width=80)
+    st.write("---")
+    modo_voz = st.checkbox("馃攰 Activar Voz", value=True)
+    st.info("Sistema exclusivo para estudiantes.")
+
+# --- 5. FUNCI脫N AVATAR ---
 def mostrar_avatar(texto, audio_bytes):
     b64_audio = ""
     if audio_bytes:
@@ -74,47 +81,55 @@ def mostrar_avatar(texto, audio_bytes):
     """
     return html
 
-# --- 5. LOGICA DE SELECCIÓN DE MODELO ---
-model = None
-lista_nombres = []
-
-# BARRA LATERAL
-with st.sidebar:
-    st.image(URL_ESCUDO, width=80)
-    st.write("---")
-    modo_voz = st.checkbox("🔊 Activar Voz", value=True)
-    st.divider()
-    
-    st.write("🔧 **Configuración Técnica:**")
-    
+# --- 6. CONEXI脫N INTELIGENTE (LA SOLUCI脫N) ---
+def obtener_modelo_disponible():
     try:
         api_key = st.secrets["GOOGLE_API_KEY"]
         genai.configure(api_key=api_key)
         
-        # 1. PEDIR LISTA A GOOGLE
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                lista_nombres.append(m.name)
-        
-        if len(lista_nombres) > 0:
-            # 2. SELECTOR MANUAL
-            st.success(f"✅ Se encontraron {len(lista_nombres)} modelos.")
-            # Intentamos que 'gemini-1.5-flash' sea el defecto si existe
-            index_defecto = 0
-            for i, nombre in enumerate(lista_nombres):
-                if "flash" in nombre and "1.5" in nombre:
-                    index_defecto = i
-                    break
-            
-            nombre_seleccionado = st.selectbox("Selecciona el modelo:", lista_nombres, index=index_defecto)
-            model = genai.GenerativeModel(nombre_seleccionado)
-        else:
-            st.error("❌ Tu API Key conecta, pero NO TIENE modelos disponibles. Debes crear una llave nueva en Google AI Studio.")
-            
-    except Exception as e:
-        st.error(f"Error de conexión: {e}")
+        # Pide a Google la lista de modelos disponibles
+        lista_modelos = []
+        try:
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    lista_modelos.append(m.name)
+        except:
+            # Si falla listar, forzamos el b谩sico
+            return genai.GenerativeModel('gemini-pro')
 
-# --- 6. CHAT ---
+        # Buscamos el mejor disponible
+        modelo_a_usar = ""
+        
+        # Preferencia 1: Flash (R谩pido)
+        for m in lista_modelos:
+            if 'flash' in m:
+                modelo_a_usar = m
+                break
+        
+        # Preferencia 2: Pro (Est谩ndar)
+        if not modelo_a_usar:
+            for m in lista_modelos:
+                if 'pro' in m:
+                    modelo_a_usar = m
+                    break
+                    
+        # Preferencia 3: El primero que haya
+        if not modelo_a_usar and lista_modelos:
+            modelo_a_usar = lista_modelos[0]
+
+        if modelo_a_usar:
+            # st.sidebar.success(f"Conectado a: {modelo_a_usar}") # Descomentar para ver cu谩l usa
+            return genai.GenerativeModel(modelo_a_usar)
+        else:
+            return None
+
+    except Exception as e:
+        st.error(f"Error de conexi贸n: {e}")
+        return None
+
+model = obtener_modelo_disponible()
+
+# --- 7. CHAT ---
 if "mensajes" not in st.session_state:
     st.session_state.mensajes = []
 
@@ -125,15 +140,15 @@ for m in st.session_state.mensajes:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# --- 7. RESPUESTA ---
+# --- 8. RESPUESTA ---
 if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user":
     if model:
-        with st.spinner("El orientador está pensando..."):
+        with st.spinner("El orientador est谩 pensando..."):
             try:
                 chat = model.start_chat(history=[])
                 prompt = f"""
-                Eres el Orientador Escolar de la Institución Educativa Rural Hugues Manuel Lacouture.
-                Responde breve y amablemente (máx 2 frases).
+                Eres el Orientador Escolar de la Instituci贸n Educativa Rural Hugues Manuel Lacouture.
+                Responde breve y amablemente (m谩x 2 frases).
                 Mensaje: {st.session_state.mensajes[-1]['content']}
                 """
                 response = chat.send_message(prompt)
@@ -153,9 +168,6 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
                         st.components.v1.html(html_avatar, height=320)
                         
             except Exception as e:
-                if "429" in str(e):
-                    st.warning("⏳ Espera un momento...")
-                else:
-                    st.error(f"Error técnico: {e}")
+                st.error(f"Ocurri贸 un error t茅cnico: {e}")
     else:
-        st.warning("⚠️ No hay modelo seleccionado. Revisa la barra lateral.")
+        st.error("鈿狅笍 No se encontr贸 ning煤n modelo de IA disponible. Verifica tu API Key o intenta m谩s tarde.")
