@@ -81,53 +81,25 @@ def mostrar_avatar(texto, audio_bytes):
     """
     return html
 
-# --- 6. CONEXIÓN INTELIGENTE (LA SOLUCIÓN) ---
-def obtener_modelo_disponible():
+# --- 6. CONEXIÓN DIRECTA (CORREGIDO PARA EVITAR EL ERROR 429) ---
+def obtener_modelo_seguro():
     try:
         api_key = st.secrets["GOOGLE_API_KEY"]
         genai.configure(api_key=api_key)
         
-        # Pide a Google la lista de modelos disponibles
-        lista_modelos = []
+        # AQUÍ ESTÁ EL CAMBIO: Forzamos el modelo 1.5 que tiene 1500 peticiones
+        # No usamos 'list_models' para evitar que escoja el 2.5 por error
         try:
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    lista_modelos.append(m.name)
+            return genai.GenerativeModel('gemini-1.5-flash')
         except:
-            # Si falla listar, forzamos el básico
+            # Si por alguna razón falla (versión vieja), usamos el Pro clásico
             return genai.GenerativeModel('gemini-pro')
-
-        # Buscamos el mejor disponible
-        modelo_a_usar = ""
-        
-        # Preferencia 1: Flash (Rápido)
-        for m in lista_modelos:
-            if 'flash' in m:
-                modelo_a_usar = m
-                break
-        
-        # Preferencia 2: Pro (Estándar)
-        if not modelo_a_usar:
-            for m in lista_modelos:
-                if 'pro' in m:
-                    modelo_a_usar = m
-                    break
-                    
-        # Preferencia 3: El primero que haya
-        if not modelo_a_usar and lista_modelos:
-            modelo_a_usar = lista_modelos[0]
-
-        if modelo_a_usar:
-            # st.sidebar.success(f"Conectado a: {modelo_a_usar}") # Descomentar para ver cuál usa
-            return genai.GenerativeModel(modelo_a_usar)
-        else:
-            return None
 
     except Exception as e:
         st.error(f"Error de conexión: {e}")
         return None
 
-model = obtener_modelo_disponible()
+model = obtener_modelo_seguro()
 
 # --- 7. CHAT ---
 if "mensajes" not in st.session_state:
@@ -168,6 +140,10 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
                         st.components.v1.html(html_avatar, height=320)
                         
             except Exception as e:
-                st.error(f"Ocurrió un error técnico: {e}")
+                # Si aún así sale error de cuota, avisamos claramente
+                if "429" in str(e):
+                    st.warning("⚠️ Límite de velocidad alcanzado. Espera 1 minuto.")
+                else:
+                    st.error(f"Ocurrió un error técnico: {e}")
     else:
-        st.error("⚠️ No se encontró ningún modelo de IA disponible. Verifica tu API Key o intenta más tarde.")
+        st.error("⚠️ No se encontró ningún modelo de IA disponible. Verifica tu API Key.")
