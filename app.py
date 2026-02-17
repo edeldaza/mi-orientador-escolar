@@ -81,22 +81,25 @@ def mostrar_avatar(texto, audio_bytes):
     """
     return html
 
-# --- 6. CONEXIÓN DIRECTA (CORREGIDO PARA EVITAR EL ERROR 429) ---
+# --- 6. CONEXIÓN INTELIGENTE (EL SALVAVIDAS) ---
 def obtener_modelo_seguro():
     try:
         api_key = st.secrets["GOOGLE_API_KEY"]
         genai.configure(api_key=api_key)
         
-        # AQUÍ ESTÁ EL CAMBIO: Forzamos el modelo 1.5 que tiene 1500 peticiones
-        # No usamos 'list_models' para evitar que escoja el 2.5 por error
+        # INTENTO 1: Usar el modelo moderno (Flash)
         try:
-            return genai.GenerativeModel('gemini-1.5-flash')
+            modelo = genai.GenerativeModel('gemini-1.5-flash')
+            # Hacemos una prueba muda. Si falla, saltará al 'except'
+            modelo.generate_content("test", generation_config={"max_output_tokens": 1})
+            return modelo
         except:
-            # Si por alguna razón falla (versión vieja), usamos el Pro clásico
+            # INTENTO 2: Si falla el Flash (404), usamos el CLÁSICO (Pro)
+            # Este SIEMPRE existe, incluso en versiones viejas
             return genai.GenerativeModel('gemini-pro')
 
     except Exception as e:
-        st.error(f"Error de conexión: {e}")
+        st.error(f"Error de conexión con Google: {e}")
         return None
 
 model = obtener_modelo_seguro()
@@ -121,6 +124,7 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
                 prompt = f"""
                 Eres el Orientador Escolar de la Institución Educativa Rural Hugues Manuel Lacouture.
                 Responde breve y amablemente (máx 2 frases).
+                Si el alumno menciona peligro, deriva a un adulto.
                 Mensaje: {st.session_state.mensajes[-1]['content']}
                 """
                 response = chat.send_message(prompt)
@@ -140,10 +144,10 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
                         st.components.v1.html(html_avatar, height=320)
                         
             except Exception as e:
-                # Si aún así sale error de cuota, avisamos claramente
+                # Si es un error de cuota (429), lo decimos claro
                 if "429" in str(e):
-                    st.warning("⚠️ Límite de velocidad alcanzado. Espera 1 minuto.")
+                    st.warning("⏳ El sistema está ocupado. Espera 1 minuto.")
                 else:
-                    st.error(f"Ocurrió un error técnico: {e}")
+                    st.error(f"Error técnico: {e}")
     else:
-        st.error("⚠️ No se encontró ningún modelo de IA disponible. Verifica tu API Key.")
+        st.error("⚠️ No se pudo conectar. Verifica tu API Key.")
