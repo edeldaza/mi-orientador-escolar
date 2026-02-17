@@ -5,39 +5,105 @@ from io import BytesIO
 import base64
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-# Layout "wide" ayuda en PC, pero en móviles se adapta solo.
-st.set_page_config(page_title="Orientador Virtual", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="Orientador Escolar", page_icon="🤖", layout="wide")
 
-# --- TUS IMÁGENES DE GITHUB ---
-AVATAR_QUIETO = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.png?raw=true"
-AVATAR_HABLANDO = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
+# --- TUS IMÁGENES ---
+URL_CERRADA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.png?raw=true"
+URL_ABIERTA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
 
-# --- GESTIÓN DE ESTADO ---
-if "esta_hablando" not in st.session_state:
-    st.session_state.esta_hablando = False
+# --- BARRA LATERAL CON ANIMACIÓN ---
+# Esta función reemplaza a st.image y hace la magia visual
+def mostrar_avatar_animado(audio_bytes=None):
+    
+    # 1. Preparar audio si existe
+    audio_html = ""
+    if audio_bytes:
+        b64 = base64.b64encode(audio_bytes.read()).decode()
+        # El truco: 'autoplay' y eventos de JS para activar la animación
+        audio_html = f"""
+        <audio id="audio_player" autoplay style="display:none">
+            <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+        </audio>
+        """
 
-# --- BARRA LATERAL (AVATAR RESPONSIVO) ---
+    # 2. El código HTML/CSS que hace que se mueva
+    html_code = f"""
+    <style>
+        .contenedor-robot {{
+            position: relative;
+            width: 100%;
+            max-width: 250px; /* Tamaño máximo en sidebar */
+            aspect-ratio: 3/4; /* Proporción de la imagen */
+            margin: auto;
+        }}
+        
+        /* Imagen Base (Quieto) */
+        .robot-base {{
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('{URL_CERRADA}');
+            background-size: contain; background-repeat: no-repeat; background-position: center top;
+            transition: transform 0.1s;
+        }}
+        
+        /* Imagen Boca Abierta (Animación) */
+        .robot-boca {{
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('{URL_ABIERTA}');
+            background-size: contain; background-repeat: no-repeat; background-position: center top;
+            opacity: 0; /* Oculta por defecto */
+        }}
+
+        /* CLASE QUE ACTIVA EL MOVIMIENTO */
+        .hablando {{
+            animation: hablar 0.2s infinite;
+        }}
+
+        @keyframes hablar {{
+            0% {{ opacity: 0; }}
+            50% {{ opacity: 1; }} /* Abre la boca */
+            100% {{ opacity: 0; }} /* Cierra la boca */
+        }}
+    </style>
+
+    <div class="contenedor-robot">
+        <div id="base" class="robot-base"></div>
+        <div id="boca" class="robot-boca"></div>
+    </div>
+    
+    {audio_html}
+
+    <script>
+        var audio = document.getElementById("audio_player");
+        var boca = document.getElementById("boca");
+
+        if (audio) {{
+            // CUANDO EL AUDIO ARRANCA -> MOVEMOS LA BOCA
+            audio.onplay = function() {{
+                boca.classList.add("hablando");
+            }};
+            
+            // CUANDO EL AUDIO TERMINA -> PARAMOS LA BOCA
+            audio.onended = function() {{
+                boca.classList.remove("hablando");
+            }};
+
+            // INTENTO DE AUTOPLAY SEGURO
+            audio.play().catch(e => console.log("Autoplay esperando interacción"));
+        }}
+    </script>
+    """
+    st.sidebar.markdown(html_code, unsafe_allow_html=True)
+
+# --- BARRA LATERAL (CONTENIDO) ---
 with st.sidebar:
     st.title("Tu Consejero Virtual")
     
-    # LÓGICA DEL AVATAR:
-    # 'use_container_width=True' hace que la imagen se adapte al ancho del dispositivo
-    if st.session_state.esta_hablando:
-        st.image(AVATAR_HABLANDO, caption="Respondiendo...", use_container_width=True)
-    else:
-        st.image(AVATAR_QUIETO, caption="Escuchando...", use_container_width=True)
+    # Marcador de posición para el avatar (se llenará más abajo)
+    contenedor_avatar = st.empty()
     
     st.divider()
-    
-    # SELECTOR DE MODO
-    # Le puse iconos para que sea más amigable en móviles
     modo = st.radio("Configuración:", ["Solo Texto 📝", "Voz Automática 🗣️"], index=1)
-    
-    st.info("ℹ️ En celulares, asegúrate de no tener el teléfono en 'Silencio' para escuchar.")
-
-# --- TÍTULO PRINCIPAL ---
-st.title("🤖 Espacio de Escucha Escolar")
-st.markdown("---")
+    st.info("ℹ️ Asegúrate de tener volumen.")
 
 # --- CONEXIÓN IA ---
 try:
@@ -48,16 +114,7 @@ except Exception as e:
     st.error(f"Error de conexión: {e}")
     st.stop()
 
-# --- INSTRUCCIONES DE SEGURIDAD ---
-instrucciones_seguridad = """
-Actúa como un orientador escolar empático y juvenil.
-1. Respuestas MUY CORTAS (máximo 2 párrafos) para que el audio sea rápido.
-2. Tono cálido y comprensivo.
-3. SI DETECTAS PELIGRO (suicidio, abuso, armas):
-   RESPONDE: "🚨 Siento mucho esto. Es muy delicado. Busca AHORA MISMO a un profesor o llama a la línea 123. No estás solo."
-"""
-
-# --- FUNCIÓN DE AUDIO ---
+# --- FUNCIONES AUXILIARES ---
 def texto_a_audio(texto):
     try:
         tts = gTTS(text=texto, lang='es')
@@ -66,71 +123,57 @@ def texto_a_audio(texto):
         audio_buffer.seek(0)
         return audio_buffer
     except Exception as e:
-        st.error(f"Error de audio: {e}")
+        st.error(f"Error audio: {e}")
         return None
 
-# --- REPRODUCTOR AUTOPLAY (INVISIBLE) ---
-def reproducir_autoplay(audio_bytes):
-    b64 = base64.b64encode(audio_bytes.read()).decode()
-    md = f"""
-        <audio controls autoplay style="display:none">
-        <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-        </audio>
-        <script>
-            var audio = document.querySelector('audio');
-            audio.play().catch(error => {{
-                console.log("Autoplay bloqueado por el navegador.");
-            }});
-        </script>
-        """
-    st.markdown(md, unsafe_allow_html=True)
+# --- CHAT UI ---
+st.title("🤖 Espacio de Escucha Escolar")
+st.markdown("---")
 
-# --- HISTORIAL DE CHAT ---
 if "mensajes" not in st.session_state:
     st.session_state.mensajes = []
 
+# Mostrar historial
 for m in st.session_state.mensajes:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# --- INTERACCIÓN ---
-if texto := st.chat_input("Escribe aquí lo que sientes..."):
-    # 1. Guardar usuario
+# --- LÓGICA PRINCIPAL ---
+# Inicializamos el avatar quieto por defecto al cargar la página
+if "ultimo_audio" not in st.session_state:
+    st.session_state.ultimo_audio = None
+
+# Si no hay interacción nueva, mostramos el avatar estático o el último audio
+with contenedor_avatar:
+    mostrar_avatar_animado(st.session_state.ultimo_audio)
+    # Limpiamos el audio después de mostrarlo para que no se repita en loop al recargar
+    st.session_state.ultimo_audio = None 
+
+if texto := st.chat_input("Escribe aquí..."):
+    # 1. Guardar mensaje usuario
     st.session_state.mensajes.append({"role": "user", "content": texto})
     with st.chat_message("user"):
         st.markdown(texto)
 
-    # 2. Activar animación (Recarga rápida)
-    st.session_state.esta_hablando = True
-    st.rerun()
-
-# --- RESPUESTA IA (Tras recarga) ---
-if st.session_state.esta_hablando and st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user":
+    # 2. Generar respuesta
     try:
-        with st.spinner("Pensando... 💭"):
-            ultimo_texto = st.session_state.mensajes[-1]["content"]
-            
+        with st.spinner("Pensando..."):
             chat = model.start_chat(history=[])
-            prompt_final = f"{instrucciones_seguridad}\n\nMensaje del alumno: {ultimo_texto}"
+            prompt = f"Actúa como un orientador escolar empático. Responde corto (máx 2 frases). Mensaje: {texto}"
+            respuesta = chat.send_message(prompt)
+            texto_res = respuesta.text
             
-            respuesta = chat.send_message(prompt_final)
-            texto_respuesta = respuesta.text
+            st.session_state.mensajes.append({"role": "assistant", "content": texto_res})
             
-            st.session_state.mensajes.append({"role": "assistant", "content": texto_respuesta})
-        
-        with st.chat_message("assistant"):
-            st.markdown(texto_respuesta)
-            
-            # AUDIO
+            # 3. Generar Audio (SI está activado)
+            audio_data = None
             if "Voz" in modo:
-                audio_data = texto_a_audio(texto_respuesta)
-                if audio_data:
-                    reproducir_autoplay(audio_data)
-        
-        # Desactivar animación
-        st.session_state.esta_hablando = False
-
-    except Exception as e:
-        st.error(f"❌ Error: {e}")
-        st.session_state.esta_hablando = False
+                audio_data = texto_a_audio(texto_res)
+                # Guardamos el audio en session_state para pasarlo al sidebar tras el rerun
+                st.session_state.ultimo_audio = audio_data
+            
+        # 4. Forzar recarga para actualizar el sidebar con el audio nuevo
         st.rerun()
+            
+    except Exception as e:
+        st.error(f"Error: {e}")
