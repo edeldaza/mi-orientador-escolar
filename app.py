@@ -5,20 +5,35 @@ from io import BytesIO
 import base64
 import streamlit.components.v1 as components
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Orientador Escolar", page_icon="🤖", layout="wide")
 
 # --- TUS IMÁGENES ---
 URL_CERRADA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.png?raw=true"
 URL_ABIERTA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
 
-# --- FUNCIÓN DE AVATAR ROBUSTO ---
-def mostrar_avatar_seguro(texto_para_audio=None):
-    audio_b64 = ""
-    js_autoplay = ""
+# --- BARRA LATERAL (CONFIGURACIÓN) ---
+with st.sidebar:
+    st.image(URL_CERRADA, width=100)
+    st.title("Configuración")
     
-    # 1. Generar Audio
-    if texto_para_audio:
+    # 1. AQUÍ ESTÁ LA OPCIÓN QUE FALTABA
+    modo_audio = st.radio(
+        "¿Cómo quieres las respuestas?",
+        ["Solo Texto 📝", "Audio y Animación 🗣️"],
+        index=1
+    )
+    
+    st.info("ℹ️ Si el audio no arranca solo, aparecerá un botón de 'Play' sobre el robot.")
+
+# --- COMPONENTE DE AVATAR ROBUSTO ---
+def mostrar_avatar(texto_para_audio=None):
+    # Solo generamos audio si el usuario eligió esa opción y hay texto
+    audio_b64 = ""
+    display_style = "none" # Por defecto el botón de play está oculto
+    autoplay_js = ""
+
+    if texto_para_audio and "Audio" in modo_audio:
         try:
             tts = gTTS(text=texto_para_audio, lang='es')
             audio_buffer = BytesIO()
@@ -26,11 +41,11 @@ def mostrar_avatar_seguro(texto_para_audio=None):
             audio_buffer.seek(0)
             b64 = base64.b64encode(audio_buffer.read()).decode()
             audio_b64 = f"data:audio/mp3;base64,{b64}"
-            js_autoplay = "intentarReproducir();"
+            autoplay_js = "intentarAutoplay();" # Intentamos reproducir al cargar
         except Exception as e:
             st.error(f"Error generando audio: {e}")
 
-    # 2. HTML/CSS/JS SIMPLIFICADO Y SEGURO
+    # CÓDIGO HTML/CSS/JS
     html_code = f"""
     <!DOCTYPE html>
     <html>
@@ -42,109 +57,112 @@ def mostrar_avatar_seguro(texto_para_audio=None):
             position: relative;
             width: 300px;
             height: 400px;
+            cursor: pointer;
         }}
 
-        /* EL ROBOT */
-        .robot {{
-            width: 100%;
-            height: 100%;
+        /* CAPAS DE IMAGEN */
+        .robot-base {{
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background-image: url('{URL_CERRADA}');
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center bottom;
-            /* Respiración suave siempre activa */
-            animation: respirar 3s infinite ease-in-out;
-            transition: transform 0.2s;
+            background-size: contain; background-repeat: no-repeat; background-position: center bottom;
+            z-index: 1;
+            transition: transform 0.1s;
+        }}
+        
+        .robot-boca {{
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('{URL_ABIERTA}');
+            background-size: contain; background-repeat: no-repeat; background-position: center bottom;
+            z-index: 2;
+            opacity: 0; /* Invisible por defecto */
         }}
 
-        /* CLASE PARA CUANDO HABLA */
+        /* CLASE PARA ANIMAR LA BOCA */
         .hablando {{
-            /* Alterna entre abierta y cerrada rápidamente */
-            animation: moverBoca 0.2s infinite !important;
-        }}
-
-        /* ANIMACIONES */
-        @keyframes respirar {{
-            0% {{ transform: scale(1) translateY(0px); }}
-            50% {{ transform: scale(1.02) translateY(-5px); }}
-            100% {{ transform: scale(1) translateY(0px); }}
+            animation: moverBoca 0.2s infinite;
         }}
 
         @keyframes moverBoca {{
-            0% {{ background-image: url('{URL_CERRADA}'); }}
-            50% {{ background-image: url('{URL_ABIERTA}'); }}
-            100% {{ background-image: url('{URL_CERRADA}'); }}
+            0% {{ opacity: 0; transform: scale(1); }}
+            50% {{ opacity: 1; transform: scale(1.02); }} /* Abre boca */
+            100% {{ opacity: 0; transform: scale(1); }}
         }}
 
-        /* BOTÓN DE AUDIO MANUAL (Por si falla el automático) */
-        #btn-audio {{
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: #ff4b4b; color: white;
-            border: none; padding: 15px 25px;
-            border-radius: 50px; font-weight: bold; cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            display: none; /* Oculto por defecto */
-            z-index: 100;
+        /* BOTÓN DE PLAY GIGANTE (OVERLAY) */
+        #overlay-play {{
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 10;
+            display: flex; justify-content: center; align-items: center;
+            border-radius: 20px;
+            display: none; /* Oculto inicialmente */
         }}
-        #btn-audio:hover {{ background: #ff2b2b; transform: translate(-50%, -55%); }}
+        .btn-icon {{
+            font-size: 50px;
+            background: white;
+            border-radius: 50%;
+            width: 80px; height: 80px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            cursor: pointer;
+        }}
+        .btn-icon:hover {{ transform: scale(1.1); }}
 
     </style>
     </head>
     <body>
 
-        <div class="contenedor">
-            <div id="personaje" class="robot"></div>
-            <button id="btn-audio" onclick="forzarReproduccion()">🔊 ESCUCHAR RESPUESTA</button>
+        <div class="contenedor" onclick="forzarPlay()">
+            <div id="base" class="robot-base"></div>
+            <div id="boca" class="robot-boca"></div>
+            
+            <div id="overlay-play">
+                <div class="btn-icon">▶️</div>
+            </div>
         </div>
 
-        <audio id="player" preload="auto">
+        <audio id="player">
             <source src="{audio_b64}" type="audio/mp3">
         </audio>
 
         <script>
             const player = document.getElementById('player');
-            const personaje = document.getElementById('personaje');
-            const btn = document.getElementById('btn-audio');
+            const boca = document.getElementById('boca');
+            const overlay = document.getElementById('overlay-play');
 
-            // --- LÓGICA DE SINCRONIZACIÓN (SIMPLE Y EFECTIVA) ---
-            
-            // 1. Cuando el audio empieza a sonar -> Mover boca
+            // 1. SINCRONIZACIÓN: Solo mover boca si suena el audio
             player.onplay = function() {{
-                personaje.classList.add('hablando');
-                btn.style.display = 'none'; // Ocultar botón si suena
+                boca.classList.add('hablando');
+                overlay.style.display = 'none'; // Quitar botón play
             }};
+            
+            player.onpause = function() {{ boca.classList.remove('hablando'); }};
+            player.onended = function() {{ boca.classList.remove('hablando'); }};
 
-            // 2. Cuando el audio termina o se pausa -> Cerrar boca
-            player.onended = function() {{
-                personaje.classList.remove('hablando');
-            }};
-            player.onpause = function() {{
-                personaje.classList.remove('hablando');
-            }};
-
-            // 3. Función para intentar reproducir
-            function intentarReproducir() {{
+            // 2. INTENTO DE AUTOPLAY
+            function intentarAutoplay() {{
                 if (!player.src || player.src.includes('null')) return;
-                
+
                 var promise = player.play();
-                
                 if (promise !== undefined) {{
                     promise.catch(error => {{
-                        console.log("Autoplay bloqueado. Mostrando botón manual.");
-                        btn.style.display = 'block'; // Mostrar botón si falla
+                        console.log("Autoplay bloqueado. Mostrando botón.");
+                        overlay.style.display = 'flex'; // MOSTRAR BOTÓN GIGANTE
                     }});
                 }}
             }}
 
-            function forzarReproduccion() {{
-                player.play();
-                btn.style.display = 'none';
+            // 3. PLAY MANUAL (Al hacer clic en el robot)
+            function forzarPlay() {{
+                if (player.paused && player.src) {{
+                    player.play();
+                }} else {{
+                    player.pause();
+                }}
             }}
 
-            // Ejecutar al cargar
-            {js_autoplay}
+            // Ejecutar al inicio
+            {autoplay_js}
 
         </script>
     </body>
@@ -152,8 +170,8 @@ def mostrar_avatar_seguro(texto_para_audio=None):
     """
     components.html(html_code, height=420)
 
-# --- TÍTULO ---
-st.title("🤖 Espacio de Escucha Escolar")
+# --- TÍTULO PRINCIPAL ---
+st.title("🎓 Espacio de Escucha Escolar")
 
 # --- CONEXIÓN IA ---
 try:
@@ -167,23 +185,19 @@ except Exception as e:
 # --- INSTRUCCIONES ---
 instrucciones = """
 Actúa como un orientador escolar empático.
-1. Respuestas MUY CORTAS (máximo 2 oraciones).
+1. Respuestas CORTAS (máximo 2 párrafos).
 2. Tono amable.
-3. PELIGRO: "🚨 Busca ayuda urgente con un profesor."
+3. SI HAY PELIGRO: "🚨 Busca ayuda urgente con un profesor."
 """
-
-# --- BARRA LATERAL ---
-with st.sidebar:
-    st.info("🔊 Si no escuchas automáticamente, pulsa el botón rojo sobre el robot.")
 
 # --- CHAT ---
 if "mensajes" not in st.session_state:
     st.session_state.mensajes = []
 
-if texto := st.chat_input("Escribe aquí..."):
+if texto := st.chat_input("Escribe aquí lo que sientes..."):
     st.session_state.mensajes.append({"role": "user", "content": texto})
 
-# --- PROCESAMIENTO ---
+# --- PROCESAR ---
 texto_final = None
 
 if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user":
@@ -200,12 +214,12 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
         except Exception as e:
             st.error("Error al conectar.")
 
-# --- INTERFAZ ---
+# --- INTERFAZ (COLUMNAS) ---
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    # Componente de Avatar
-    mostrar_avatar_seguro(texto_final)
+    # Mostramos el avatar (el componente decide si poner audio o no según el modo)
+    mostrar_avatar(texto_final)
 
 with col2:
     container = st.container(height=450)
