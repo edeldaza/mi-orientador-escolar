@@ -3,6 +3,7 @@ import google.generativeai as genai
 from gtts import gTTS
 from io import BytesIO
 import base64
+import streamlit.components.v1 as components # Importante para el avatar
 
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(
@@ -165,9 +166,53 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
                     audio_buffer.seek(0)
                     html_avatar = mostrar_avatar(texto_resp, audio_buffer)
                     with st.sidebar:
-                        st.components.v1.html(html_avatar, height=320)
+                        components.html(html_avatar, height=320)
                         
             except Exception as e:
                 st.error(f"Ocurrió un error técnico: {e}")
     else:
         st.error("⚠️ No se encontró ningún modelo de IA disponible. Verifica tu API Key o intenta más tarde.")
+
+
+# --- 9. BOTÓN FLOTANTE DE WHATSAPP (AQUÍ ESTÁ LO NUEVO) ---
+# Copia este bloque tal cual está al final de tu código
+def boton_whatsapp():
+    # ⚠️ CAMBIA ESTE NÚMERO POR EL TUYO ⚠️
+    # Formato: 57 + Número (Ej: 573001234567)
+    numero_telefono = "573025534747" 
+    
+    mensaje = "Hola, necesito orientación escolar."
+    url_wa = f"https://wa.me/{numero_telefono}?text={mensaje.replace(' ', '%20')}"
+    
+    st.markdown(f"""
+    <style>
+        .boton-flotante {{
+            position: fixed;
+            width: 60px;
+            height: 60px;
+            bottom: 40px;
+            right: 40px;
+            background-color: #25d366;
+            color: #FFF;
+            border-radius: 50px;
+            text-align: center;
+            font-size: 30px;
+            box-shadow: 2px 2px 3px #999;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }}
+        .boton-flotante:hover {{
+            background-color: #128c7e;
+            transform: scale(1.1);
+        }}
+    </style>
+    <a href="{url_wa}" class="boton-flotante" target="_blank">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="35px" style="filter: brightness(0) invert(1);">
+    </a>
+    """, unsafe_allow_html=True)
+
+# Ejecutamos el botón
+boton_whatsapp()
