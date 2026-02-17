@@ -4,19 +4,19 @@ from gtts import gTTS
 from io import BytesIO
 import base64
 
-# --- 1. CONFIGURACI脫N ---
+# --- 1. CONFIGURACIÓN ---
 st.set_page_config(
-    page_title="Orientaci贸n I.E.R. Hugues Manuel Lacouture",
-    page_icon="馃帗",
+    page_title="Orientación I.E.R. Hugues Manuel Lacouture",
+    page_icon="🎓",
     layout="wide"
 )
 
-# --- 2. IM脕GENES ---
+# --- 2. IMÁGENES ---
 URL_CERRADA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.png?raw=true"
 URL_ABIERTA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
 URL_ESCUDO = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima3.png?raw=true"
 
-# --- 3. DISE脩O ---
+# --- 3. DISEÑO ---
 st.markdown("""
     <style>
         .header {
@@ -39,8 +39,8 @@ st.markdown("""
 st.markdown(f"""
     <div class="header">
         <img src="{URL_ESCUDO}" width="100">
-        <div class="title-text">Instituci贸n Educativa Rural<br>Hugues Manuel Lacouture</div>
-        <p>馃帗 Portal de Orientaci贸n Escolar 馃帗</p>
+        <div class="title-text">Institución Educativa Rural<br>Hugues Manuel Lacouture</div>
+        <p>🎓 Portal de Orientación Escolar 🎓</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -48,10 +48,10 @@ st.markdown(f"""
 with st.sidebar:
     st.image(URL_ESCUDO, width=80)
     st.write("---")
-    modo_voz = st.checkbox("馃攰 Activar Voz", value=True)
+    modo_voz = st.checkbox("🔊 Activar Voz", value=True)
     st.info("Sistema exclusivo para estudiantes.")
 
-# --- 5. FUNCI脫N AVATAR ---
+# --- 5. FUNCIÓN AVATAR ---
 def mostrar_avatar(texto, audio_bytes):
     b64_audio = ""
     if audio_bytes:
@@ -81,7 +81,7 @@ def mostrar_avatar(texto, audio_bytes):
     """
     return html
 
-# --- 6. CONEXI脫N INTELIGENTE (LA SOLUCI脫N) ---
+# --- 6. CONEXIÓN INTELIGENTE (LA SOLUCIÓN) ---
 def obtener_modelo_disponible():
     try:
         api_key = st.secrets["GOOGLE_API_KEY"]
@@ -94,19 +94,19 @@ def obtener_modelo_disponible():
                 if 'generateContent' in m.supported_generation_methods:
                     lista_modelos.append(m.name)
         except:
-            # Si falla listar, forzamos el b谩sico
+            # Si falla listar, forzamos el básico
             return genai.GenerativeModel('gemini-pro')
 
         # Buscamos el mejor disponible
         modelo_a_usar = ""
         
-        # Preferencia 1: Flash (R谩pido)
+        # Preferencia 1: Flash (Rápido)
         for m in lista_modelos:
             if 'flash' in m:
                 modelo_a_usar = m
                 break
         
-        # Preferencia 2: Pro (Est谩ndar)
+        # Preferencia 2: Pro (Estándar)
         if not modelo_a_usar:
             for m in lista_modelos:
                 if 'pro' in m:
@@ -118,13 +118,13 @@ def obtener_modelo_disponible():
             modelo_a_usar = lista_modelos[0]
 
         if modelo_a_usar:
-            # st.sidebar.success(f"Conectado a: {modelo_a_usar}") # Descomentar para ver cu谩l usa
+            # st.sidebar.success(f"Conectado a: {modelo_a_usar}") # Descomentar para ver cuál usa
             return genai.GenerativeModel(modelo_a_usar)
         else:
             return None
 
     except Exception as e:
-        st.error(f"Error de conexi贸n: {e}")
+        st.error(f"Error de conexión: {e}")
         return None
 
 model = obtener_modelo_disponible()
@@ -143,12 +143,12 @@ for m in st.session_state.mensajes:
 # --- 8. RESPUESTA ---
 if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user":
     if model:
-        with st.spinner("El orientador est谩 pensando..."):
+        with st.spinner("El orientador está pensando..."):
             try:
                 chat = model.start_chat(history=[])
                 prompt = f"""
-                Eres el Orientador Escolar de la Instituci贸n Educativa Rural Hugues Manuel Lacouture.
-                Responde breve y amablemente (m谩x 2 frases).
+                Eres el Orientador Escolar de la Institución Educativa Rural Hugues Manuel Lacouture.
+                Responde breve y amablemente (máx 2 frases).
                 Mensaje: {st.session_state.mensajes[-1]['content']}
                 """
                 response = chat.send_message(prompt)
@@ -168,6 +168,6 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
                         st.components.v1.html(html_avatar, height=320)
                         
             except Exception as e:
-                st.error(f"Ocurri贸 un error t茅cnico: {e}")
+                st.error(f"Ocurrió un error técnico: {e}")
     else:
-        st.error("鈿狅笍 No se encontr贸 ning煤n modelo de IA disponible. Verifica tu API Key o intenta m谩s tarde.")
+        st.error("⚠️ No se encontró ningún modelo de IA disponible. Verifica tu API Key o intenta más tarde.")
