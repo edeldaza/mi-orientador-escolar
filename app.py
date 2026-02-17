@@ -97,18 +97,15 @@ def obtener_modelo_disponible():
             return genai.GenerativeModel('gemini-pro')
 
         modelo_a_usar = ""
-        
         for m in lista_modelos:
             if 'flash' in m:
                 modelo_a_usar = m
                 break
-        
         if not modelo_a_usar:
             for m in lista_modelos:
                 if 'pro' in m:
                     modelo_a_usar = m
                     break
-                    
         if not modelo_a_usar and lista_modelos:
             modelo_a_usar = lista_modelos[0]
 
@@ -167,7 +164,7 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
         st.error("⚠️ No se encontró ningún modelo de IA disponible. Verifica tu API Key o intenta más tarde.")
 
 
-# --- 9. BOTÓN FLOTANTE DE WHATSAPP (CORREGIDO) ---
+# --- 9. BOTÓN WHATSAPP MEJORADO (CON TEXTO Y MÁS ARRIBA) ---
 def boton_whatsapp():
     # ⚠️ CAMBIA ESTE NÚMERO POR EL TUYO ⚠️
     numero_telefono = "573000000000" 
@@ -175,33 +172,38 @@ def boton_whatsapp():
     mensaje = "Hola, necesito orientación escolar."
     url_wa = f"https://wa.me/{numero_telefono}?text={mensaje.replace(' ', '%20')}"
     
-    # CSS CORREGIDO: bottom: 90px (para subirlo) y right: 20px (para alinearlo)
     st.markdown(f"""
     <style>
         .boton-flotante {{
             position: fixed;
-            width: 55px;
-            height: 55px;
-            bottom: 90px; /* ANTES 40px, AHORA 90px (Sube para no tapar el chat) */
-            right: 20px;  /* ANTES 40px, AHORA 20px (Más pegado a la derecha) */
+            bottom: 150px; /* MÁS ARRIBA: Para que no estorbe al teclado del celular */
+            right: 20px;
             background-color: #25d366;
-            color: #FFF;
-            border-radius: 50px;
-            text-align: center;
-            box-shadow: 2px 2px 3px #999;
-            z-index: 9999; /* Asegura que esté siempre encima */
+            color: white !important;
+            padding: 12px 25px; /* Relleno para que quepa el texto */
+            border-radius: 50px; /* Bordes redondos tipo píldora */
+            text-decoration: none;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+            z-index: 10000;
             display: flex;
             align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
+            gap: 10px; /* Espacio entre icono y texto */
+            font-family: sans-serif;
+            font-weight: bold;
+            transition: transform 0.3s;
         }}
         .boton-flotante:hover {{
             background-color: #128c7e;
-            transform: scale(1.1);
+            transform: scale(1.05);
+        }}
+        .texto-boton {{
+            font-size: 16px;
         }}
     </style>
+    
     <a href="{url_wa}" class="boton-flotante" target="_blank">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="30px" style="filter: brightness(0) invert(1);">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="25px" style="filter: brightness(0) invert(1);">
+        <span class="texto-boton">Ayuda WhatsApp</span>
     </a>
     """, unsafe_allow_html=True)
 
