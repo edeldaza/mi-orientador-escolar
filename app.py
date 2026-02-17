@@ -3,7 +3,7 @@ import google.generativeai as genai
 from gtts import gTTS
 from io import BytesIO
 import base64
-import streamlit.components.v1 as components # Importante para el avatar
+import streamlit.components.v1 as components 
 
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(
@@ -82,44 +82,37 @@ def mostrar_avatar(texto, audio_bytes):
     """
     return html
 
-# --- 6. CONEXIÓN INTELIGENTE (LA SOLUCIÓN) ---
+# --- 6. CONEXIÓN INTELIGENTE ---
 def obtener_modelo_disponible():
     try:
         api_key = st.secrets["GOOGLE_API_KEY"]
         genai.configure(api_key=api_key)
         
-        # Pide a Google la lista de modelos disponibles
         lista_modelos = []
         try:
             for m in genai.list_models():
                 if 'generateContent' in m.supported_generation_methods:
                     lista_modelos.append(m.name)
         except:
-            # Si falla listar, forzamos el básico
             return genai.GenerativeModel('gemini-pro')
 
-        # Buscamos el mejor disponible
         modelo_a_usar = ""
         
-        # Preferencia 1: Flash (Rápido)
         for m in lista_modelos:
             if 'flash' in m:
                 modelo_a_usar = m
                 break
         
-        # Preferencia 2: Pro (Estándar)
         if not modelo_a_usar:
             for m in lista_modelos:
                 if 'pro' in m:
                     modelo_a_usar = m
                     break
                     
-        # Preferencia 3: El primero que haya
         if not modelo_a_usar and lista_modelos:
             modelo_a_usar = lista_modelos[0]
 
         if modelo_a_usar:
-            # st.sidebar.success(f"Conectado a: {modelo_a_usar}") # Descomentar para ver cuál usa
             return genai.GenerativeModel(modelo_a_usar)
         else:
             return None
@@ -174,31 +167,29 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
         st.error("⚠️ No se encontró ningún modelo de IA disponible. Verifica tu API Key o intenta más tarde.")
 
 
-# --- 9. BOTÓN FLOTANTE DE WHATSAPP (AQUÍ ESTÁ LO NUEVO) ---
-# Copia este bloque tal cual está al final de tu código
+# --- 9. BOTÓN FLOTANTE DE WHATSAPP (CORREGIDO) ---
 def boton_whatsapp():
     # ⚠️ CAMBIA ESTE NÚMERO POR EL TUYO ⚠️
-    # Formato: 57 + Número (Ej: 573001234567)
-    numero_telefono = "573025534747" 
+    numero_telefono = "573000000000" 
     
     mensaje = "Hola, necesito orientación escolar."
     url_wa = f"https://wa.me/{numero_telefono}?text={mensaje.replace(' ', '%20')}"
     
+    # CSS CORREGIDO: bottom: 90px (para subirlo) y right: 20px (para alinearlo)
     st.markdown(f"""
     <style>
         .boton-flotante {{
             position: fixed;
-            width: 60px;
-            height: 60px;
-            bottom: 40px;
-            right: 40px;
+            width: 55px;
+            height: 55px;
+            bottom: 90px; /* ANTES 40px, AHORA 90px (Sube para no tapar el chat) */
+            right: 20px;  /* ANTES 40px, AHORA 20px (Más pegado a la derecha) */
             background-color: #25d366;
             color: #FFF;
             border-radius: 50px;
             text-align: center;
-            font-size: 30px;
             box-shadow: 2px 2px 3px #999;
-            z-index: 100;
+            z-index: 9999; /* Asegura que esté siempre encima */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -210,9 +201,8 @@ def boton_whatsapp():
         }}
     </style>
     <a href="{url_wa}" class="boton-flotante" target="_blank">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="35px" style="filter: brightness(0) invert(1);">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="30px" style="filter: brightness(0) invert(1);">
     </a>
     """, unsafe_allow_html=True)
 
-# Ejecutamos el botón
 boton_whatsapp()
