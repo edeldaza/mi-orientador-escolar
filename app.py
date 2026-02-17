@@ -153,4 +153,117 @@ def configurar_modelo():
                     break
         
         # Fallback final
-        if not modelo_seleccionado and modelos_dis
+        if not modelo_seleccionado and modelos_disponibles:
+            modelo_seleccionado = modelos_disponibles[0]
+
+        if modelo_seleccionado:
+            # Configuración de generación
+            generation_config = {
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 1024,
+            }
+            
+            # Instrucción del sistema
+            system_instruction = (
+                "Eres el Orientador Escolar de la Institución Educativa Rural Hugues Manuel Lacouture. "
+                "Tu nombre es Orientador Virtual. "
+                "Tu misión es escuchar y apoyar a los estudiantes con empatía, respeto y claridad. "
+                "Tus respuestas deben ser cortas, cálidas y directas (máximo 3 oraciones). "
+                "Si el tema es grave (suicidio, abuso, violencia), sugiere contactar a un adulto de confianza inmediatamente."
+            )
+
+            # Intentamos crear el modelo con system_instruction
+            try:
+                model = genai.GenerativeModel(
+                    model_name=modelo_seleccionado,
+                    generation_config=generation_config,
+                    system_instruction=system_instruction
+                )
+            except:
+                # Si falla (versión vieja de librería), lo creamos sin system_instruction
+                model = genai.GenerativeModel(
+                    model_name=modelo_seleccionado,
+                    generation_config=generation_config
+                )
+            
+            return model
+        else:
+            st.error("No se encontraron modelos disponibles.")
+            return None
+
+    except Exception as e:
+        st.error(f"Error crítico en la conexión: {e}")
+        return None
+
+# Inicializar modelo
+model = configurar_modelo()
+
+# --- 7. INTERFAZ DE CHAT ---
+if "mensajes" not in st.session_state:
+    st.session_state.mensajes = []
+
+# Mostrar historial
+for m in st.session_state.mensajes:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
+
+# --- 8. PROCESAMIENTO ---
+if texto := st.chat_input("Escribe aquí lo que sientes o necesitas..."):
+    # 1. Guardar mensaje usuario
+    st.session_state.mensajes.append({"role": "user", "content": texto})
+    with st.chat_message("user"):
+        st.markdown(texto)
+
+    # 2. Generar respuesta
+    if model:
+        with st.chat_message("assistant"):
+            with st.spinner("Escuchando..."):
+                try:
+                    # Crear chat (sin historial largo para ahorrar tokens, o podrías pasarlo)
+                    chat = model.start_chat(history=[])
+                    
+                    # Si el modelo no soportó system_instruction al crearse, lo inyectamos aquí
+                    prompt_final = texto
+                    # (Opcional: puedes descomentar la siguiente línea si sientes que olvida quién es)
+                    # prompt_final = f"Actúa como Orientador Escolar breve y empático. Responde a esto: {texto}"
+
+                    response = chat.send_message(prompt_final)
+                    texto_resp = response.text
+                    
+                    st.markdown(texto_resp)
+                    st.session_state.mensajes.append({"role": "assistant", "content": texto_resp})
+
+                    # 3. Voz y Avatar
+                    if modo_voz:
+                        tts = gTTS(text=texto_resp, lang='es')
+                        audio_buffer = BytesIO()
+                        tts.write_to_fp(audio_buffer)
+                        audio_buffer.seek(0)
+                        
+                        html_avatar = mostrar_avatar(texto_resp, audio_buffer)
+                        with st.sidebar:
+                            components.html(html_avatar, height=320)
+
+                except Exception as e:
+                    st.error(f"Lo siento, tuve un problema de conexión. Intenta de nuevo. ({e})")
+    else:
+        st.error("El sistema no está disponible en este momento.")
+
+# --- 9. BOTÓN WHATSAPP ---
+def render_whatsapp_button():
+    # ⚠️ CAMBIA ESTE NÚMERO POR EL TUYO REAL (Ej: 573001234567)
+    numero_telefono = "573000000000" 
+    
+    mensaje = "Hola, necesito orientación escolar."
+    url_wa = f"https://wa.me/{numero_telefono}?text={mensaje.replace(' ', '%20')}"
+    
+    st.markdown(f"""
+    <a href="{url_wa}" class="boton-flotante" target="_blank">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="25px" style="filter: brightness(0) invert(1);">
+        <span style="font-size: 16px;">Ayuda WhatsApp</span>
+    </a>
+    """, unsafe_allow_html=True)
+
+render_whatsapp_button()
