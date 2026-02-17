@@ -3,6 +3,7 @@ import google.generativeai as genai
 from gtts import gTTS
 from io import BytesIO
 import base64
+import time
 
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(
@@ -16,7 +17,7 @@ URL_CERRADA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.
 URL_ABIERTA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
 URL_ESCUDO = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima3.png?raw=true"
 
-# --- 3. DISEÑO ---
+# --- 3. ENCABEZADO INSTITUCIONAL ---
 st.markdown("""
     <style>
         .header {
@@ -47,67 +48,11 @@ st.markdown(f"""
 # --- 4. BARRA LATERAL ---
 with st.sidebar:
     st.image(URL_ESCUDO, width=80)
+    st.write("---")
     modo_voz = st.checkbox("🔊 Activar Voz", value=True)
-    st.divider()
-    
-    # --- RASTREADOR DE MODELOS (Aquí está la magia) ---
-    st.write("🔧 **Estado de Conexión:**")
-    status_text = st.empty()
+    st.info("Sistema exclusivo para estudiantes.")
 
-# --- 5. LÓGICA DE CONEXIÓN "RASTREADORA" ---
-def encontrar_modelo_disponible():
-    try:
-        # 1. Configurar llave
-        api_key = st.secrets["GOOGLE_API_KEY"]
-        genai.configure(api_key=api_key)
-        
-        # 2. RASTREAR: Pedir lista de modelos a Google
-        # Esto evita el error 404 porque solo usamos lo que existe
-        modelos_disponibles = []
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                modelos_disponibles.append(m.name)
-        
-        if not modelos_disponibles:
-            return None, "La llave no tiene modelos asignados (Crea una nueva en AI Studio)."
-
-        # 3. ELEGIR: Buscamos el mejor en orden de preferencia
-        # Preferimos 'flash' (rápido), luego 'pro' (estándar), o el que sea
-        modelo_elegido = None
-        
-        # Buscamos 'flash' (ej: models/gemini-1.5-flash)
-        for m in modelos_disponibles:
-            if 'flash' in m and '001' not in m: # Evitamos versiones viejas si es posible
-                modelo_elegido = m
-                break
-        
-        # Si no hay flash, buscamos 'pro'
-        if not modelo_elegido:
-            for m in modelos_disponibles:
-                if 'pro' in m:
-                    modelo_elegido = m
-                    break
-        
-        # Si no, el primero de la lista
-        if not modelo_elegido:
-            modelo_elegido = modelos_disponibles[0]
-            
-        return genai.GenerativeModel(modelo_elegido), modelo_elegido
-
-    except Exception as e:
-        return None, f"Error: {str(e)}"
-
-# Conectamos
-model, nombre_modelo = encontrar_modelo_disponible()
-
-# Mostramos el resultado en la barra
-with st.sidebar:
-    if model:
-        status_text.success(f"✅ Conectado a: {nombre_modelo}")
-    else:
-        status_text.error(f"❌ {nombre_modelo}")
-
-# --- 6. FUNCIÓN AVATAR ---
+# --- 5. FUNCIÓN AVATAR ---
 def mostrar_avatar(texto, audio_bytes):
     b64_audio = ""
     if audio_bytes:
@@ -137,6 +82,36 @@ def mostrar_avatar(texto, audio_bytes):
     """
     return html
 
+# --- 6. CONFIGURACIÓN DE MODELOS (SIN GASTAR CUOTA) ---
+def obtener_respuesta_ia(mensaje_usuario):
+    try:
+        api_key = st.secrets["GOOGLE_API_KEY"]
+        genai.configure(api_key=api_key)
+        
+        # Intentamos primero con el modelo RÁPIDO (Flash)
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            prompt = f"Eres el Orientador Escolar de la I.E.R. Hugues Manuel Lacouture. Responde breve y amablemente (máx 2 frases). Mensaje: {mensaje_usuario}"
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            error_msg = str(e)
+            # Si el error es 404 (Librería vieja) o 429 (Cuota), intentamos con PRO
+            if "404" in error_msg or "429" in error_msg:
+                # Fallback al modelo PRO
+                model = genai.GenerativeModel('gemini-pro')
+                prompt = f"Eres el Orientador Escolar de la I.E.R. Hugues Manuel Lacouture. Responde breve y amablemente (máx 2 frases). Mensaje: {mensaje_usuario}"
+                response = model.generate_content(prompt)
+                return response.text
+            else:
+                raise e # Si es otro error, lo lanzamos
+
+    except Exception as e_final:
+        if "429" in str(e_final):
+            return "⏳ El sistema está recibiendo muchas consultas. Por favor, espera 1 minuto y vuelve a intentarlo."
+        else:
+            return f"❌ Error técnico: {e_final}"
+
 # --- 7. CHAT ---
 if "mensajes" not in st.session_state:
     st.session_state.mensajes = []
@@ -148,37 +123,25 @@ for m in st.session_state.mensajes:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# --- 8. RESPUESTA ---
+# --- 8. PROCESAR ---
 if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user":
-    if model:
-        with st.spinner("El orientador está pensando..."):
+    with st.spinner("El orientador está pensando..."):
+        # Llamamos a la función optimizada
+        texto_resp = obtener_respuesta_ia(st.session_state.mensajes[-1]['content'])
+        
+        st.session_state.mensajes.append({"role": "assistant", "content": texto_resp})
+        with st.chat_message("assistant"):
+            st.markdown(texto_resp)
+        
+        # Audio (Solo si no es un mensaje de error)
+        if modo_voz and "Error" not in texto_resp and "consulta" not in texto_resp:
             try:
-                chat = model.start_chat(history=[])
-                prompt = f"""
-                Eres el Orientador Escolar de la Institución Educativa Rural Hugues Manuel Lacouture.
-                Responde breve y amablemente (máx 2 frases).
-                Mensaje: {st.session_state.mensajes[-1]['content']}
-                """
-                response = chat.send_message(prompt)
-                texto_resp = response.text
-                
-                st.session_state.mensajes.append({"role": "assistant", "content": texto_resp})
-                with st.chat_message("assistant"):
-                    st.markdown(texto_resp)
-                
-                if modo_voz:
-                    tts = gTTS(text=texto_resp, lang='es')
-                    audio_buffer = BytesIO()
-                    tts.write_to_fp(audio_buffer)
-                    audio_buffer.seek(0)
-                    html_avatar = mostrar_avatar(texto_resp, audio_buffer)
-                    with st.sidebar:
-                        st.components.v1.html(html_avatar, height=320)
-                        
-            except Exception as e:
-                if "429" in str(e):
-                    st.warning("⏳ El sistema está ocupado. Espera 1 minuto.")
-                else:
-                    st.error(f"Error técnico: {e}")
-    else:
-        st.error("⚠️ No hay conexión con la IA. Verifica el mensaje de error en la barra lateral.")
+                tts = gTTS(text=texto_resp, lang='es')
+                audio_buffer = BytesIO()
+                tts.write_to_fp(audio_buffer)
+                audio_buffer.seek(0)
+                html_avatar = mostrar_avatar(texto_resp, audio_buffer)
+                with st.sidebar:
+                    st.components.v1.html(html_avatar, height=320)
+            except:
+                pass # Si falla el audio, no bloqueamos el chat
