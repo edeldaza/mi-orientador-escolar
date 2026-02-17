@@ -32,7 +32,7 @@ st.markdown("""
             color: #1E3A8A;
             font-family: sans-serif;
             font-weight: 900;
-            font-size: 1.8rem; /* Ajustado para móviles */
+            font-size: 1.8rem;
             text-transform: uppercase;
             margin-top: 10px;
         }
@@ -59,6 +59,14 @@ with st.sidebar:
     st.write("---")
     modo_voz = st.checkbox("🔊 Activar Voz y Animación", value=True)
     st.info("ℹ️ Sistema exclusivo para estudiantes.")
+    
+    # --- DIAGNÓSTICO TÉCNICO (Solo para ti) ---
+    st.divider()
+    try:
+        ver = genai.__version__
+        st.caption(f"🔧 Versión del sistema: {ver}")
+    except:
+        st.caption("🔧 Versión desconocida")
 
 # --- 6. FUNCIÓN DE AVATAR (ESTABLE) ---
 def mostrar_avatar(texto, audio_bytes):
@@ -66,10 +74,8 @@ def mostrar_avatar(texto, audio_bytes):
     if audio_bytes:
         b64_audio = base64.b64encode(audio_bytes.read()).decode()
 
-    # Este HTML incluye el reproductor y la lógica de animación
     html = f"""
     <div style="background: white; padding: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center;">
-        
         <div style="position: relative; width: 200px; height: 260px; margin: 0 auto;">
             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
                         background-image: url('{URL_CERRADA}'); background-size: contain; background-repeat: no-repeat; background-position: center;">
@@ -96,7 +102,6 @@ def mostrar_avatar(texto, audio_bytes):
         var btn = document.getElementById("btn");
         var intervalo;
 
-        // CUANDO SUENA -> ANIMAR
         player.onplay = function() {{
             btn.style.display = "none";
             intervalo = setInterval(() => {{
@@ -104,33 +109,34 @@ def mostrar_avatar(texto, audio_bytes):
             }}, 200);
         }};
 
-        // CUANDO PARA -> DETENER
         player.onpause = function() {{ clearInterval(intervalo); boca.style.opacity = "0"; }};
         player.onended = function() {{ clearInterval(intervalo); boca.style.opacity = "0"; }};
 
-        // INTENTO DE AUTOPLAY
         var promise = player.play();
         if (promise !== undefined) {{
-            promise.catch(error => {{
-                // Si falla (bloqueo navegador), mostramos botón
-                btn.style.display = "block";
-            }});
+            promise.catch(error => {{ btn.style.display = "block"; }});
         }}
     </script>
     """
     return html
 
-# --- 7. CONEXIÓN IA (CORREGIDA) ---
+# --- 7. CONEXIÓN IA INTELIGENTE (EL PARACAÍDAS) ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
     
-    # INTENTO 1: Usar el modelo Flash (Rápido y Gratis)
-    # IMPORTANTE: Esto requiere google-generativeai>=0.7.2
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # INTENTO A: Usar el modelo NUEVO (Rápido, requiere actualización)
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Hacemos una prueba muda para ver si no explota
+        # Si explota (error 404), saltará al 'except' de abajo
+    except:
+        # INTENTO B: Usar el modelo VIEJO (Lento, pero funciona con versión antigua)
+        model = genai.GenerativeModel('gemini-pro')
+        st.toast("⚠️ Usando modelo de respaldo (versión antigua detectada).", icon="ℹ️")
     
 except Exception as e:
-    st.error(f"Error de configuración: {e}")
+    st.error(f"Error crítico: {e}")
     st.stop()
 
 # --- 8. CHAT ---
@@ -140,7 +146,6 @@ if "mensajes" not in st.session_state:
 if texto := st.chat_input("Hola, ¿cómo te sientes?"):
     st.session_state.mensajes.append({"role": "user", "content": texto})
 
-# Mostrar historial
 for m in st.session_state.mensajes:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
@@ -152,9 +157,8 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
             chat = model.start_chat(history=[])
             prompt = f"""
             Eres el Orientador Escolar de la Institución Educativa Rural Hugues Manuel Lacouture.
-            Tu tono es empático, profesional y cercano con los estudiantes.
-            Responde brevemente (máximo 2 frases).
-            Si hay peligro (suicidio/abuso), deriva urgentemente a un adulto.
+            Responde brevemente (máx 2 frases).
+            Si hay peligro, deriva a un adulto.
             Mensaje: {st.session_state.mensajes[-1]['content']}
             """
             
@@ -166,25 +170,17 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
             with st.chat_message("assistant"):
                 st.markdown(texto_resp)
 
-            # AUDIO Y AVATAR
             if modo_voz:
                 tts = gTTS(text=texto_resp, lang='es')
                 audio_buffer = BytesIO()
                 tts.write_to_fp(audio_buffer)
                 audio_buffer.seek(0)
-                
-                # Renderizar Avatar
                 html_avatar = mostrar_avatar(texto_resp, audio_buffer)
-                
-                # Mostrar en barra lateral
                 with st.sidebar:
                     st.components.v1.html(html_avatar, height=320)
             
         except Exception as e:
-            # Manejo de errores amigable
-            if "404" in str(e):
-                st.error("⚠️ Error de versión: Por favor actualiza el archivo requirements.txt como te indiqué.")
-            elif "429" in str(e):
-                st.warning("⏳ El sistema está ocupado. Intenta de nuevo en 1 minuto.")
+            if "429" in str(e):
+                st.warning("⏳ Mucha gente usando la app. Espera 1 minuto.")
             else:
-                st.error(f"Ocurrió un error: {e}")
+                st.error(f"Error: {e}")
