@@ -5,42 +5,41 @@ from io import BytesIO
 import base64
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Orientador Virtual 3D", page_icon="🤖", layout="wide")
+# Layout "wide" ayuda en PC, pero en móviles se adapta solo.
+st.set_page_config(page_title="Orientador Virtual", page_icon="🤖", layout="wide")
 
-# --- URLs DE LOS AVATARES (PUEDES CAMBIARLAS) ---
-# Busca una imagen quieta y un GIF que parezca el mismo robot hablando
-AVATAR_QUIETO = "https://cdn-icons-png.flaticon.com/512/4712/4712027.png"
-# Este es un GIF de ejemplo de un robot con luces parpadeando
-AVATAR_HABLANDO = "https://i.pinimg.com/originals/a1/46/36/a146364e0ea9cd972fb60989a8dd8296.gif"
+# --- TUS IMÁGENES DE GITHUB ---
+AVATAR_QUIETO = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.png?raw=true"
+AVATAR_HABLANDO = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
 
-# --- GESTIÓN DE ESTADO DEL AVATAR ---
-# Inicializamos una variable para saber si el robot debe moverse o no
+# --- GESTIÓN DE ESTADO ---
 if "esta_hablando" not in st.session_state:
     st.session_state.esta_hablando = False
 
-# --- BARRA LATERAL (AVATAR DINÁMICO) ---
+# --- BARRA LATERAL (AVATAR RESPONSIVO) ---
 with st.sidebar:
     st.title("Tu Consejero Virtual")
     
-    # AQUÍ ESTÁ EL TRUCO VISUAL:
-    # Si el estado dice que está hablando, mostramos el GIF. Si no, la imagen quieta.
+    # LÓGICA DEL AVATAR:
+    # 'use_container_width=True' hace que la imagen se adapte al ancho del dispositivo
     if st.session_state.esta_hablando:
-        st.image(AVATAR_HABLANDO, width=180, caption="Respondiendo... 🗣️")
+        st.image(AVATAR_HABLANDO, caption="Respondiendo...", use_container_width=True)
     else:
-        st.image(AVATAR_QUIETO, width=180, caption="Escuchando... 👂")
+        st.image(AVATAR_QUIETO, caption="Escuchando...", use_container_width=True)
     
     st.divider()
     
     # SELECTOR DE MODO
-    modo = st.radio("Opciones de respuesta:", ["Solo Texto 📝", "Voz Automática 🔊"], index=1)
+    # Le puse iconos para que sea más amigable en móviles
+    modo = st.radio("Configuración:", ["Solo Texto 📝", "Voz Automática 🗣️"], index=1)
     
-    st.info("ℹ️ El modo 'Voz Automática' leerá la respuesta y animará al avatar.")
+    st.info("ℹ️ En celulares, asegúrate de no tener el teléfono en 'Silencio' para escuchar.")
 
 # --- TÍTULO PRINCIPAL ---
-st.title("🤖 Espacio de Escucha Interactivo")
+st.title("🤖 Espacio de Escucha Escolar")
 st.markdown("---")
 
-# --- CONEXIÓN ---
+# --- CONEXIÓN IA ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
@@ -52,67 +51,63 @@ except Exception as e:
 # --- INSTRUCCIONES DE SEGURIDAD ---
 instrucciones_seguridad = """
 Actúa como un orientador escolar empático y juvenil.
-1. Respuestas MUY CORTAS (máximo 3 frases) para que el audio no sea eterno.
+1. Respuestas MUY CORTAS (máximo 2 párrafos) para que el audio sea rápido.
 2. Tono cálido y comprensivo.
 3. SI DETECTAS PELIGRO (suicidio, abuso, armas):
    RESPONDE: "🚨 Siento mucho esto. Es muy delicado. Busca AHORA MISMO a un profesor o llama a la línea 123. No estás solo."
 """
 
-# --- FUNCIÓN PARA GENERAR AUDIO ---
+# --- FUNCIÓN DE AUDIO ---
 def texto_a_audio(texto):
     try:
         tts = gTTS(text=texto, lang='es')
         audio_buffer = BytesIO()
         tts.write_to_fp(audio_buffer)
-        audio_buffer.seek(0) # Rebobinar el buffer antes de leerlo
+        audio_buffer.seek(0)
         return audio_buffer
     except Exception as e:
-        st.error(f"No pude generar el audio: {e}")
+        st.error(f"Error de audio: {e}")
         return None
 
-# --- TRUCO HTML PARA AUTOPLAY (Reproducción automática) ---
+# --- REPRODUCTOR AUTOPLAY (INVISIBLE) ---
 def reproducir_autoplay(audio_bytes):
-    # Convertimos el audio a una cadena de texto base64 para meterlo en HTML
     b64 = base64.b64encode(audio_bytes.read()).decode()
-    # Creamos un reproductor de audio oculto que se activa solo
     md = f"""
-        <audio controls autoplay style="width: 100%;">
+        <audio controls autoplay style="display:none">
         <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
         </audio>
         <script>
             var audio = document.querySelector('audio');
-            audio.play().catch(function(error) {{
-                console.log("El navegador bloqueó el autoplay hasta que el usuario interactúe.");
+            audio.play().catch(error => {{
+                console.log("Autoplay bloqueado por el navegador.");
             }});
         </script>
         """
     st.markdown(md, unsafe_allow_html=True)
 
-# --- CHAT ---
+# --- HISTORIAL DE CHAT ---
 if "mensajes" not in st.session_state:
     st.session_state.mensajes = []
 
-# Mostrar historial
 for m in st.session_state.mensajes:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# --- INTERACCIÓN PRINCIPAL ---
+# --- INTERACCIÓN ---
 if texto := st.chat_input("Escribe aquí lo que sientes..."):
-    # 1. Usuario envía mensaje
+    # 1. Guardar usuario
     st.session_state.mensajes.append({"role": "user", "content": texto})
     with st.chat_message("user"):
         st.markdown(texto)
 
-    # 2. ACTIVAMOS EL MODO "HABLANDO" antes de generar
+    # 2. Activar animación (Recarga rápida)
     st.session_state.esta_hablando = True
-    st.rerun() # Recargamos la página para que el avatar cambie a GIF
+    st.rerun()
 
-# Esta parte se ejecuta después de que la página se recarga y 'esta_hablando' es True
+# --- RESPUESTA IA (Tras recarga) ---
 if st.session_state.esta_hablando and st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user":
     try:
-        with st.spinner("Procesando respuesta..."):
-            # Recuperamos el último mensaje del usuario
+        with st.spinner("Pensando... 💭"):
             ultimo_texto = st.session_state.mensajes[-1]["content"]
             
             chat = model.start_chat(history=[])
@@ -121,25 +116,21 @@ if st.session_state.esta_hablando and st.session_state.mensajes and st.session_s
             respuesta = chat.send_message(prompt_final)
             texto_respuesta = respuesta.text
             
-            # Guardar respuesta
             st.session_state.mensajes.append({"role": "assistant", "content": texto_respuesta})
         
-        # Mostrar respuesta
         with st.chat_message("assistant"):
             st.markdown(texto_respuesta)
             
-            # LÓGICA DE AUDIO AUTOPLAY
+            # AUDIO
             if "Voz" in modo:
                 audio_data = texto_a_audio(texto_respuesta)
                 if audio_data:
-                    # Usamos el truco de HTML para autoplay
                     reproducir_autoplay(audio_data)
         
-        # 3. FINALIZAMOS EL MODO "HABLANDO"
+        # Desactivar animación
         st.session_state.esta_hablando = False
-        # No hacemos rerun aquí para dejar que el audio termine de cargar en el navegador
 
     except Exception as e:
-        st.error(f"❌ Ocurrió un error: {e}")
+        st.error(f"❌ Error: {e}")
         st.session_state.esta_hablando = False
         st.rerun()
