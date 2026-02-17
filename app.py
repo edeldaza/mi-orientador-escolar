@@ -3,7 +3,7 @@ import google.generativeai as genai
 from gtts import gTTS
 from io import BytesIO
 import base64
-import streamlit.components.v1 as components
+import time
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
@@ -26,19 +26,20 @@ st.markdown("""
             background-color: #f0f2f6;
             border-radius: 15px;
             margin-bottom: 25px;
-            border-bottom: 5px solid #1E3A8A; /* Línea azul institucional */
+            border-bottom: 5px solid #1E3A8A;
         }
         .titulo-colegio {
             color: #1E3A8A;
             font-family: sans-serif;
             font-weight: 900;
-            font-size: 2rem;
+            font-size: 1.8rem; /* Ajustado para móviles */
             text-transform: uppercase;
             margin-top: 10px;
         }
         .subtitulo {
             color: #555;
             font-size: 1.1rem;
+            margin-top: 5px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -46,7 +47,7 @@ st.markdown("""
 # --- 4. MOSTRAR ENCABEZADO ---
 st.markdown(f"""
     <div class="encabezado">
-        <img src="{URL_ESCUDO}" width="120">
+        <img src="{URL_ESCUDO}" width="100">
         <div class="titulo-colegio">Institución Educativa Rural<br>Hugues Manuel Lacouture</div>
         <div class="subtitulo">🎓 Orientación Escolar Virtual 🎓</div>
     </div>
@@ -57,18 +58,19 @@ with st.sidebar:
     st.image(URL_ESCUDO, width=80)
     st.write("---")
     modo_voz = st.checkbox("🔊 Activar Voz y Animación", value=True)
-    st.info("ℹ️ Sistema exclusivo para estudiantes de la I.E.R. Hugues Manuel Lacouture.")
+    st.info("ℹ️ Sistema exclusivo para estudiantes.")
 
-# --- 6. FUNCIÓN AVATAR (AUDIO + ANIMACIÓN) ---
-def mostrar_avatar_con_audio(texto, audio_bytes):
+# --- 6. FUNCIÓN DE AVATAR (ESTABLE) ---
+def mostrar_avatar(texto, audio_bytes):
     b64_audio = ""
     if audio_bytes:
         b64_audio = base64.b64encode(audio_bytes.read()).decode()
 
+    # Este HTML incluye el reproductor y la lógica de animación
     html = f"""
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+    <div style="background: white; padding: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center;">
         
-        <div style="position: relative; width: 200px; height: 260px;">
+        <div style="position: relative; width: 200px; height: 260px; margin: 0 auto;">
             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
                         background-image: url('{URL_CERRADA}'); background-size: contain; background-repeat: no-repeat; background-position: center;">
             </div>
@@ -78,13 +80,13 @@ def mostrar_avatar_con_audio(texto, audio_bytes):
             </div>
         </div>
 
-        <audio id="player" controls autoplay style="width: 200px; margin-top: 10px; display: none;">
+        <audio id="player" controls autoplay style="width: 100%; margin-top: 10px; display: none;">
             <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
         </audio>
 
         <button id="btn" onclick="document.getElementById('player').play()" 
-                style="display: none; margin-top: 10px; padding: 10px 20px; background: #1E3A8A; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
-            🔊 ESCUCHAR RESPUESTA
+                style="display: none; margin-top: 10px; padding: 10px 20px; background: #1E3A8A; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%;">
+            🔊 ESCUCHAR
         </button>
     </div>
 
@@ -94,31 +96,41 @@ def mostrar_avatar_con_audio(texto, audio_bytes):
         var btn = document.getElementById("btn");
         var intervalo;
 
+        // CUANDO SUENA -> ANIMAR
         player.onplay = function() {{
             btn.style.display = "none";
-            intervalo = setInterval(() => {{ boca.style.opacity = (boca.style.opacity == "0" ? "1" : "0"); }}, 200);
+            intervalo = setInterval(() => {{
+                boca.style.opacity = (boca.style.opacity == "0" ? "1" : "0");
+            }}, 200);
         }};
-        
+
+        // CUANDO PARA -> DETENER
         player.onpause = function() {{ clearInterval(intervalo); boca.style.opacity = "0"; }};
         player.onended = function() {{ clearInterval(intervalo); boca.style.opacity = "0"; }};
 
-        // Autoplay seguro
-        player.play().catch(e => {{ btn.style.display = "block"; }});
+        // INTENTO DE AUTOPLAY
+        var promise = player.play();
+        if (promise !== undefined) {{
+            promise.catch(error => {{
+                // Si falla (bloqueo navegador), mostramos botón
+                btn.style.display = "block";
+            }});
+        }}
     </script>
     """
     return html
 
-# --- 7. CONEXIÓN IA (AQUÍ ESTÁ EL ARREGLO) ---
+# --- 7. CONEXIÓN IA (CORREGIDA) ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
     
-    # --- CAMBIO IMPORTANTE: MODELO ESTABLE ---
-    # Usamos 'gemini-1.5-flash' que tiene mejor capa gratuita y es más rápido
+    # INTENTO 1: Usar el modelo Flash (Rápido y Gratis)
+    # IMPORTANTE: Esto requiere google-generativeai>=0.7.2
     model = genai.GenerativeModel('gemini-1.5-flash')
     
 except Exception as e:
-    st.error("Error de conexión. Verifica tu API Key.")
+    st.error(f"Error de configuración: {e}")
     st.stop()
 
 # --- 8. CHAT ---
@@ -140,7 +152,7 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
             chat = model.start_chat(history=[])
             prompt = f"""
             Eres el Orientador Escolar de la Institución Educativa Rural Hugues Manuel Lacouture.
-            Tu tono es empático, profesional y cercano.
+            Tu tono es empático, profesional y cercano con los estudiantes.
             Responde brevemente (máximo 2 frases).
             Si hay peligro (suicidio/abuso), deriva urgentemente a un adulto.
             Mensaje: {st.session_state.mensajes[-1]['content']}
@@ -161,15 +173,18 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
                 tts.write_to_fp(audio_buffer)
                 audio_buffer.seek(0)
                 
-                html_avatar = mostrar_avatar_con_audio(texto_resp, audio_buffer)
+                # Renderizar Avatar
+                html_avatar = mostrar_avatar(texto_resp, audio_buffer)
                 
                 # Mostrar en barra lateral
                 with st.sidebar:
-                    st.components.v1.html(html_avatar, height=350)
+                    st.components.v1.html(html_avatar, height=320)
             
         except Exception as e:
-            # Si vuelve a salir error de cuota, mostramos un mensaje amable
-            if "429" in str(e):
-                st.error("⚠️ El sistema está recibiendo muchas consultas. Por favor espera 1 minuto.")
+            # Manejo de errores amigable
+            if "404" in str(e):
+                st.error("⚠️ Error de versión: Por favor actualiza el archivo requirements.txt como te indiqué.")
+            elif "429" in str(e):
+                st.warning("⏳ El sistema está ocupado. Intenta de nuevo en 1 minuto.")
             else:
-                st.error(f"Error: {e}")
+                st.error(f"Ocurrió un error: {e}")
