@@ -6,14 +6,13 @@ import base64
 import streamlit.components.v1 as components
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Orientador Virtual", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="Orientador Virtual 3D", page_icon="🤖", layout="wide")
 
-# --- TUS IMÁGENES (Boca Cerrada y Abierta) ---
-# Asegúrate de que ambas imágenes tengan EL MISMO tamaño y encuadre
+# --- TUS IMÁGENES (Mantenemos las que ya funcionan) ---
 URL_CERRADA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.png?raw=true"
 URL_ABIERTA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
 
-# --- COMPONENTE DE AVATAR (SOLO BOCA) ---
+# --- COMPONENTE AVANZADO CON RITMO ORGÁNICO ---
 def mostrar_avatar_avanzado(texto_para_audio=None):
     # Generar Audio
     audio_b64 = ""
@@ -21,7 +20,6 @@ def mostrar_avatar_avanzado(texto_para_audio=None):
     
     if texto_para_audio:
         try:
-            # Generamos el audio
             tts = gTTS(text=texto_para_audio, lang='es')
             audio_buffer = BytesIO()
             tts.write_to_fp(audio_buffer)
@@ -32,20 +30,12 @@ def mostrar_avatar_avanzado(texto_para_audio=None):
         except Exception as e:
             st.error(f"Error audio: {e}")
 
-    # CÓDIGO HTML/CSS/JS LIMPIO
+    # CÓDIGO HTML/CSS/JS (LÓGICA DE HABLA REALISTA)
     html_code = f"""
     <!DOCTYPE html>
     <html>
     <head>
     <style>
-        /* 1. ANIMACIÓN DE HABLAR (SOLO CAMBIO DE IMAGEN) */
-        /* Eliminé todos los 'transform: scale' para que no rebote */
-        @keyframes hablar {{
-            0% {{ background-image: url('{URL_CERRADA}'); }}
-            50% {{ background-image: url('{URL_ABIERTA}'); }}
-            100% {{ background-image: url('{URL_CERRADA}'); }}
-        }}
-
         body {{
             background-color: transparent;
             margin: 0;
@@ -57,23 +47,18 @@ def mostrar_avatar_avanzado(texto_para_audio=None):
         }}
 
         .robot {{
-            width: 300px;  /* Ajusta el tamaño si lo quieres más grande/pequeño */
+            width: 300px;
             height: 400px;
-            
-            /* Imagen por defecto: QUIETA */
             background-image: url('{URL_CERRADA}');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center bottom;
-            
-            /* Transiciones suaves por si acaso, pero sin movimiento */
-            transition: background-image 0.1s;
+            transition: transform 0.1s ease; /* Suaviza el movimiento */
         }}
 
-        /* CLASE QUE ACTIVA EL MOVIMIENTO DE BOCA */
-        .hablando {{
-            /* 0.2s es la velocidad de abrir/cerrar la boca */
-            animation: hablar 0.2s infinite; 
+        /* Clase para boca abierta */
+        .boca-abierta {{
+            background-image: url('{URL_ABIERTA}') !important;
         }}
         
         audio {{ display: none; }}
@@ -90,23 +75,71 @@ def mostrar_avatar_avanzado(texto_para_audio=None):
         <script>
             const player = document.getElementById('player');
             const robot = document.getElementById('robot-personaje');
+            
+            let intervaloHabla;
+            let estaHablando = false;
 
-            // CUANDO SUENA EL AUDIO -> Activa la clase .hablando
+            // --- FUNCIÓN DE RESPIRACIÓN (Idle) ---
+            // Hace que el robot suba y baje suavemente cuando no habla
+            function animarRespiracion() {{
+                if (!estaHablando) {{
+                    const tiempo = Date.now() / 1000;
+                    const escala = 1 + Math.sin(tiempo * 2) * 0.01; // Sube y baja 1%
+                    robot.style.transform = `scale(${{escala}})`;
+                    requestAnimationFrame(animarRespiracion);
+                }}
+            }}
+            animarRespiracion(); // Iniciar respiración
+
+            // --- FUNCIÓN DE HABLA ORGÁNICA ---
+            function moverBocaAleatorio() {{
+                if (!estaHablando) return;
+
+                // 1. Abrimos la boca
+                robot.classList.add('boca-abierta');
+                // Efecto de rebote pequeño al hablar (énfasis)
+                robot.style.transform = 'scale(1.02)';
+
+                // 2. Calculamos un tiempo aleatorio para mantenerla abierta
+                // (Simula vocales cortas y largas: entre 50ms y 200ms)
+                const tiempoAbierto = Math.random() * 150 + 50;
+
+                setTimeout(() => {{
+                    // 3. Cerramos la boca
+                    robot.classList.remove('boca-abierta');
+                    robot.style.transform = 'scale(1.0)';
+
+                    // 4. Calculamos tiempo aleatorio para mantenerla cerrada
+                    // (Simula pausas entre sílabas: entre 50ms y 150ms)
+                    const tiempoCerrado = Math.random() * 100 + 50;
+
+                    if (estaHablando) {{
+                        setTimeout(moverBocaAleatorio, tiempoCerrado);
+                    }}
+                }}, tiempoAbierto);
+            }}
+
+            // EVENTOS DE AUDIO
             player.onplay = function() {{
-                robot.classList.add('hablando');
+                estaHablando = true;
+                moverBocaAleatorio(); // Iniciar ciclo de habla
             }};
 
-            // CUANDO TERMINA O PAUSA -> Quita la clase .hablando
             player.onpause = function() {{
-                robot.classList.remove('hablando');
-            }};
-            player.onended = function() {{
-                robot.classList.remove('hablando');
+                estaHablando = false;
+                robot.classList.remove('boca-abierta');
+                animarRespiracion(); // Volver a respirar
             }};
             
-            // Intento de autoplay
+            player.onended = function() {{
+                estaHablando = false;
+                robot.classList.remove('boca-abierta');
+                animarRespiracion(); // Volver a respirar
+            }};
+
+            // Autoplay forzado
             if ("{autoplay_attr}" === "autoplay") {{
-                player.play().catch(e => console.log("Esperando clic del usuario..."));
+                player.play().catch(e => console.log("Esperando clic..."));
             }}
         </script>
     </body>
@@ -129,7 +162,7 @@ except Exception as e:
 # --- INSTRUCCIONES ---
 instrucciones = """
 Actúa como un orientador escolar empático.
-1. Respuestas CORTAS (máximo 2 frases) para que el audio sea rápido.
+1. Respuestas CORTAS (máximo 2 frases) para que el audio sea fluido.
 2. Tono amable.
 3. SI HAY PELIGRO: "🚨 Busca ayuda urgente con un profesor o llama al 123."
 """
@@ -158,16 +191,15 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
             respuesta = chat.send_message(prompt)
             
             st.session_state.mensajes.append({"role": "assistant", "content": respuesta.text})
-            texto_para_reproducir = respuesta.text # Guardamos para el audio
+            texto_para_reproducir = respuesta.text
             
         except Exception as e:
             st.error("Error de conexión.")
 
-# --- MOSTRAR EN COLUMNAS ---
+# --- MOSTRAR ---
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    # El avatar recibe el texto, genera el audio y mueve la boca
     mostrar_avatar_avanzado(texto_para_reproducir)
 
 with col2:
