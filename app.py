@@ -5,19 +5,19 @@ from io import BytesIO
 import base64
 import streamlit.components.v1 as components
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Orientador Pro", page_icon="🤖", layout="wide")
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="Orientador Escolar", page_icon="🤖", layout="wide")
 
-# --- TUS IMÁGENES (Boca Cerrada y Abierta) ---
+# --- TUS IMÁGENES ---
 URL_CERRADA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.png?raw=true"
 URL_ABIERTA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
 
-# --- COMPONENTE DE SINCRONIZACIÓN PROFESIONAL ---
-def mostrar_avatar_definitivo(texto_para_audio=None):
+# --- FUNCIÓN DE AVATAR ROBUSTO ---
+def mostrar_avatar_seguro(texto_para_audio=None):
     audio_b64 = ""
-    # Variable para intentar autoplay desde JS
-    trigger_js = "" 
+    js_autoplay = ""
     
+    # 1. Generar Audio
     if texto_para_audio:
         try:
             tts = gTTS(text=texto_para_audio, lang='es')
@@ -26,154 +26,125 @@ def mostrar_avatar_definitivo(texto_para_audio=None):
             audio_buffer.seek(0)
             b64 = base64.b64encode(audio_buffer.read()).decode()
             audio_b64 = f"data:audio/mp3;base64,{b64}"
-            trigger_js = "iniciarReproduccion();" # Orden de arrancar
+            js_autoplay = "intentarReproducir();"
         except Exception as e:
             st.error(f"Error generando audio: {e}")
 
-    # --- CÓDIGO HTML/JS ROBUSTO ---
+    # 2. HTML/CSS/JS SIMPLIFICADO Y SEGURO
     html_code = f"""
     <!DOCTYPE html>
     <html>
     <head>
     <style>
-        body {{ margin: 0; overflow: hidden; background: transparent; display: flex; justify-content: center; font-family: sans-serif; }}
+        body {{ margin: 0; background: transparent; display: flex; justify-content: center; font-family: sans-serif; }}
         
-        .contenedor-avatar {{
+        .contenedor {{
             position: relative;
             width: 300px;
             height: 400px;
         }}
 
-        /* IMAGEN 1: BASE (SIEMPRE VISIBLE) */
-        .capa-base {{
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+        /* EL ROBOT */
+        .robot {{
+            width: 100%;
+            height: 100%;
             background-image: url('{URL_CERRADA}');
-            background-size: contain; background-repeat: no-repeat; background-position: center bottom;
-            z-index: 1;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center bottom;
+            /* Respiración suave siempre activa */
+            animation: respirar 3s infinite ease-in-out;
+            transition: transform 0.2s;
         }}
 
-        /* IMAGEN 2: BOCA ABIERTA (SE MEZCLA SEGÚN VOLUMEN) */
-        .capa-boca {{
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-image: url('{URL_ABIERTA}');
-            background-size: contain; background-repeat: no-repeat; background-position: center bottom;
-            z-index: 2;
-            opacity: 0; /* Invisible al inicio */
-            transition: opacity 0.08s ease-out; /* Suavizado para realismo */
-            will-change: opacity;
+        /* CLASE PARA CUANDO HABLA */
+        .hablando {{
+            /* Alterna entre abierta y cerrada rápidamente */
+            animation: moverBoca 0.2s infinite !important;
         }}
 
-        /* ANIMACIÓN DE RESPIRACIÓN (IDLE) */
+        /* ANIMACIONES */
         @keyframes respirar {{
-            0% {{ transform: translateY(0px) scale(1); }}
-            50% {{ transform: translateY(-5px) scale(1.02); }}
-            100% {{ transform: translateY(0px) scale(1); }}
-        }}
-        
-        .animado {{
-            animation: respirar 4s infinite ease-in-out;
+            0% {{ transform: scale(1) translateY(0px); }}
+            50% {{ transform: scale(1.02) translateY(-5px); }}
+            100% {{ transform: scale(1) translateY(0px); }}
         }}
 
-        /* BOTÓN DE EMERGENCIA (SI EL NAVEGADOR BLOQUEA EL AUDIO) */
-        #btn-play {{
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 10;
-            background-color: #ff4b4b; color: white; border: none;
-            padding: 15px 30px; border-radius: 50px; font-size: 16px; font-weight: bold;
-            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            display: none; /* Oculto por defecto */
+        @keyframes moverBoca {{
+            0% {{ background-image: url('{URL_CERRADA}'); }}
+            50% {{ background-image: url('{URL_ABIERTA}'); }}
+            100% {{ background-image: url('{URL_CERRADA}'); }}
         }}
-        #btn-play:hover {{ background-color: #ff2b2b; transform: translate(-50%, -52%); }}
+
+        /* BOTÓN DE AUDIO MANUAL (Por si falla el automático) */
+        #btn-audio {{
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: #ff4b4b; color: white;
+            border: none; padding: 15px 25px;
+            border-radius: 50px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: none; /* Oculto por defecto */
+            z-index: 100;
+        }}
+        #btn-audio:hover {{ background: #ff2b2b; transform: translate(-50%, -55%); }}
 
     </style>
     </head>
     <body>
 
-        <div class="contenedor-avatar animado">
-            <div class="capa-base"></div>
-            <div class="capa-boca" id="boca"></div>
-            <button id="btn-play" onclick="iniciarReproduccion()">▶️ ACTIVAR AUDIO</button>
+        <div class="contenedor">
+            <div id="personaje" class="robot"></div>
+            <button id="btn-audio" onclick="forzarReproduccion()">🔊 ESCUCHAR RESPUESTA</button>
         </div>
 
-        <audio id="player" crossorigin="anonymous">
+        <audio id="player" preload="auto">
             <source src="{audio_b64}" type="audio/mp3">
         </audio>
 
         <script>
             const player = document.getElementById('player');
-            const boca = document.getElementById('boca');
-            const btn = document.getElementById('btn-play');
+            const personaje = document.getElementById('personaje');
+            const btn = document.getElementById('btn-audio');
+
+            // --- LÓGICA DE SINCRONIZACIÓN (SIMPLE Y EFECTIVA) ---
             
-            let audioContext, analyser, dataArray;
-            let animacionActiva = false;
+            // 1. Cuando el audio empieza a sonar -> Mover boca
+            player.onplay = function() {{
+                personaje.classList.add('hablando');
+                btn.style.display = 'none'; // Ocultar botón si suena
+            }};
 
-            function iniciarReproduccion() {{
-                if (!player.src || player.src === window.location.href) return;
+            // 2. Cuando el audio termina o se pausa -> Cerrar boca
+            player.onended = function() {{
+                personaje.classList.remove('hablando');
+            }};
+            player.onpause = function() {{
+                personaje.classList.remove('hablando');
+            }};
 
-                // 1. Configurar Audio Context (Necesario para analizar volumen)
-                if (!audioContext) {{
-                    try {{
-                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                        analyser = audioContext.createAnalyser();
-                        const source = audioContext.createMediaElementSource(player);
-                        source.connect(analyser);
-                        analyser.connect(audioContext.destination);
-                        analyser.fftSize = 64; // Precisión del análisis
-                        dataArray = new Uint8Array(analyser.frequencyBinCount);
-                    }} catch (e) {{ console.log("Error audio context:", e); }}
-                }}
-
-                // 2. Intentar reproducir
-                player.play().then(() => {{
-                    btn.style.display = 'none'; // Ocultar botón si funciona
-                    if (audioContext.state === 'suspended') audioContext.resume();
-                    animacionActiva = true;
-                    sincronizarLabios();
-                }}).catch(error => {{
-                    console.log("Autoplay bloqueado. Mostrando botón.");
-                    btn.style.display = 'block'; // Mostrar botón si falla
-                }});
-            }}
-
-            // --- EL CEREBRO DE LA SINCRONIZACIÓN ---
-            function sincronizarLabios() {{
-                if (!animacionActiva || player.paused) {{
-                    boca.style.opacity = 0; // Cerrar boca si no suena
-                    return;
-                }}
+            // 3. Función para intentar reproducir
+            function intentarReproducir() {{
+                if (!player.src || player.src.includes('null')) return;
                 
-                requestAnimationFrame(sincronizarLabios);
-
-                // Leer volumen actual
-                if (analyser) {{
-                    analyser.getByteFrequencyData(dataArray);
-                    
-                    let suma = 0;
-                    // Promediar frecuencias bajas (donde está la voz humana)
-                    for(let i = 0; i < dataArray.length; i++) {{
-                        suma += dataArray[i];
-                    }}
-                    let volumen = suma / dataArray.length; // Valor entre 0 y 255
-
-                    // Convertir volumen a Opacidad (0.0 a 1.0)
-                    // Dividimos por 80 para que sea sensible
-                    let apertura = volumen / 80; 
-                    
-                    // Limitar extremos
-                    if (apertura > 1) apertura = 1;
-                    if (apertura < 0.1) apertura = 0; // Silencio = boca cerrada
-
-                    boca.style.opacity = apertura;
+                var promise = player.play();
+                
+                if (promise !== undefined) {{
+                    promise.catch(error => {{
+                        console.log("Autoplay bloqueado. Mostrando botón manual.");
+                        btn.style.display = 'block'; // Mostrar botón si falla
+                    }});
                 }}
             }}
 
-            // Eventos
-            player.onended = () => {{ animacionActiva = false; boca.style.opacity = 0; }};
-            
-            // Intentar arranque automático
-            {trigger_js}
+            function forzarReproduccion() {{
+                player.play();
+                btn.style.display = 'none';
+            }}
+
+            // Ejecutar al cargar
+            {js_autoplay}
 
         </script>
     </body>
@@ -196,15 +167,14 @@ except Exception as e:
 # --- INSTRUCCIONES ---
 instrucciones = """
 Actúa como un orientador escolar empático.
-1. Respuestas CORTAS (máximo 2 oraciones).
+1. Respuestas MUY CORTAS (máximo 2 oraciones).
 2. Tono amable.
 3. PELIGRO: "🚨 Busca ayuda urgente con un profesor."
 """
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("Configuración")
-    st.info("🔊 Si no escuchas nada, pulsa el botón rojo que aparecerá sobre el robot.")
+    st.info("🔊 Si no escuchas automáticamente, pulsa el botón rojo sobre el robot.")
 
 # --- CHAT ---
 if "mensajes" not in st.session_state:
@@ -213,8 +183,8 @@ if "mensajes" not in st.session_state:
 if texto := st.chat_input("Escribe aquí..."):
     st.session_state.mensajes.append({"role": "user", "content": texto})
 
-# --- PROCESAR RESPUESTA ---
-texto_para_reproducir = None
+# --- PROCESAMIENTO ---
+texto_final = None
 
 if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user":
     with st.spinner("Pensando..."):
@@ -225,17 +195,17 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
             respuesta = chat.send_message(prompt)
             
             st.session_state.mensajes.append({"role": "assistant", "content": respuesta.text})
-            texto_para_reproducir = respuesta.text
+            texto_final = respuesta.text
             
         except Exception as e:
-            st.error("Error conexión.")
+            st.error("Error al conectar.")
 
-# --- MOSTRAR ---
+# --- INTERFAZ ---
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    # Llamamos al componente
-    mostrar_avatar_definitivo(texto_para_reproducir)
+    # Componente de Avatar
+    mostrar_avatar_seguro(texto_final)
 
 with col2:
     container = st.container(height=450)
