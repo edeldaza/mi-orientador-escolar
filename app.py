@@ -6,15 +6,17 @@ import base64
 import streamlit.components.v1 as components
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Orientador Pro 3D", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="Orientador Pro", page_icon="🤖", layout="wide")
 
-# --- TU ÚNICA IMAGEN (Boca Cerrada) ---
+# --- TUS IMÁGENES (Boca Cerrada y Abierta) ---
 URL_CERRADA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.png?raw=true"
+URL_ABIERTA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
 
-# --- COMPONENTE DE MARIONETA AVANZADA ---
-def mostrar_marioneta_avanzada(texto_para_audio=None):
+# --- COMPONENTE DE SINCRONIZACIÓN PROFESIONAL ---
+def mostrar_avatar_definitivo(texto_para_audio=None):
     audio_b64 = ""
-    start_script = ""
+    # Variable para intentar autoplay desde JS
+    trigger_js = "" 
     
     if texto_para_audio:
         try:
@@ -24,111 +26,75 @@ def mostrar_marioneta_avanzada(texto_para_audio=None):
             audio_buffer.seek(0)
             b64 = base64.b64encode(audio_buffer.read()).decode()
             audio_b64 = f"data:audio/mp3;base64,{b64}"
-            start_script = "iniciarAudio();" 
+            trigger_js = "iniciarReproduccion();" # Orden de arrancar
         except Exception as e:
-            st.error(f"Error audio: {e}")
+            st.error(f"Error generando audio: {e}")
 
-    # --- HTML/CSS/JS (Técnica de Marioneta) ---
+    # --- CÓDIGO HTML/JS ROBUSTO ---
     html_code = f"""
     <!DOCTYPE html>
     <html>
     <head>
     <style>
-        body {{ margin: 0; overflow: hidden; background: transparent; display: flex; justify-content: center; }}
+        body {{ margin: 0; overflow: hidden; background: transparent; display: flex; justify-content: center; font-family: sans-serif; }}
         
-        .container {{
+        .contenedor-avatar {{
             position: relative;
-            width: 300px; /* Ajuste fino para que coincida con la imagen */
+            width: 300px;
             height: 400px;
         }}
 
-        /* EL CUERPO DEL ROBOT (Imagen base) */
-        .robot-cuerpo {{
+        /* IMAGEN 1: BASE (SIEMPRE VISIBLE) */
+        .capa-base {{
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             background-image: url('{URL_CERRADA}');
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center bottom;
+            background-size: contain; background-repeat: no-repeat; background-position: center bottom;
             z-index: 1;
-            /* Animación de respiración por defecto */
-            animation: respirar 4s infinite ease-in-out;
-            transform-origin: bottom center;
         }}
 
-        /* LOS PÁRPADOS (Capas blancas semitransparentes sobre los ojos) */
-        .parpado {{
+        /* IMAGEN 2: BOCA ABIERTA (SE MEZCLA SEGÚN VOLUMEN) */
+        .capa-boca {{
             position: absolute;
-            background-color: #ffffff; /* Color del párpado */
-            opacity: 0.7; /* Un poco transparentes para que se vea la luz azul debajo */
-            height: 0%; /* Empiezan abiertos (altura 0) */
-            z-index: 5;
-            transition: height 0.1s;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('{URL_ABIERTA}');
+            background-size: contain; background-repeat: no-repeat; background-position: center bottom;
+            z-index: 2;
+            opacity: 0; /* Invisible al inicio */
+            transition: opacity 0.08s ease-out; /* Suavizado para realismo */
+            will-change: opacity;
         }}
 
-        /* Posición exacta de los ojos en TU imagen ima1.png */
-        .ojo-izq {{
-            top: 27%;
-            left: 24%;
-            width: 18%;
-            height: 15%;
-            border-top-left-radius: 50%;
-            border-top-right-radius: 50%;
-        }}
-        .ojo-der {{
-            top: 27%;
-            right: 24%;
-            width: 18%;
-            height: 15%;
-            border-top-left-radius: 50%;
-            border-top-right-radius: 50%;
+        /* ANIMACIÓN DE RESPIRACIÓN (IDLE) */
+        @keyframes respirar {{
+            0% {{ transform: translateY(0px) scale(1); }}
+            50% {{ transform: translateY(-5px) scale(1.02); }}
+            100% {{ transform: translateY(0px) scale(1); }}
         }}
         
-        /* CLASE PARA PARPADEAR */
-        .cerrar-ojos {{
-             height: 15% !important; /* Cierra el párpado */
+        .animado {{
+            animation: respirar 4s infinite ease-in-out;
         }}
 
-        /* ANIMACIONES */
-        @keyframes respirar {{
-            0% {{ transform: scale(1) translateY(0px); }}
-            50% {{ transform: scale(1.02) translateY(-4px); }}
-            100% {{ transform: scale(1) translateY(0px); }}
-        }}
-
-        /* Esta animación hace que el robot vibre rápido al hablar */
-        @keyframes vibrar-hablando {{
-            0% {{ transform: translateY(0px) scale(1.01); }}
-            25% {{ transform: translateY(2px) scale(1.01); }}
-            50% {{ transform: translateY(0px) scale(1.01); }}
-            75% {{ transform: translateY(3px) scale(1.01); }}
-            100% {{ transform: translateY(0px) scale(1.01); }}
-        }}
-
-        .hablando-activo {{
-            /* Sobreescribe la respiración con la vibración rápida */
-            animation: vibrar-hablando 0.15s infinite linear !important;
-        }}
-
-        #btn-start {{
+        /* BOTÓN DE EMERGENCIA (SI EL NAVEGADOR BLOQUEA EL AUDIO) */
+        #btn-play {{
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 10; background: #ff4b4b; color: white; border: none;
-            padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold;
-            display: none;
+            z-index: 10;
+            background-color: #ff4b4b; color: white; border: none;
+            padding: 15px 30px; border-radius: 50px; font-size: 16px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: none; /* Oculto por defecto */
         }}
+        #btn-play:hover {{ background-color: #ff2b2b; transform: translate(-50%, -52%); }}
+
     </style>
     </head>
     <body>
 
-        <div class="container">
-            <div id="robot" class="robot-cuerpo">
-                 <div id="p-izq" class="parpado ojo-izq"></div>
-                <div id="p-der" class="parpado ojo-der"></div>
-            </div>
-            <button id="btn-start" onclick="iniciarAudio()">🔊 Tocar para escuchar</button>
+        <div class="contenedor-avatar animado">
+            <div class="capa-base"></div>
+            <div class="capa-boca" id="boca"></div>
+            <button id="btn-play" onclick="iniciarReproduccion()">▶️ ACTIVAR AUDIO</button>
         </div>
 
         <audio id="player" crossorigin="anonymous">
@@ -137,82 +103,83 @@ def mostrar_marioneta_avanzada(texto_para_audio=None):
 
         <script>
             const player = document.getElementById('player');
-            const robot = document.getElementById('robot');
-            const pIzq = document.getElementById('p-izq');
-            const pDer = document.getElementById('p-der');
-            const btn = document.getElementById('btn-start');
-            let audioContext, analyser, dataArray, source;
-            let hablando = false;
+            const boca = document.getElementById('boca');
+            const btn = document.getElementById('btn-play');
+            
+            let audioContext, analyser, dataArray;
+            let animacionActiva = false;
 
-            // --- FUNCIÓN DE PARPADEO ALEATORIO ---
-            function parpadear() {{
-                // Cierra los ojos
-                pIzq.classList.add('cerrar-ojos');
-                pDer.classList.add('cerrar-ojos');
-                
-                // Los abre después de 150ms
-                setTimeout(() => {{
-                    pIzq.classList.remove('cerrar-ojos');
-                    pDer.classList.remove('cerrar-ojos');
-                }}, 150);
-
-                // Programa el próximo parpadeo entre 2 y 6 segundos
-                const proximoParpadeo = Math.random() * 4000 + 2000;
-                setTimeout(parpadear, proximoParpadeo);
-            }}
-            // Iniciar ciclo de parpadeo
-            setTimeout(parpadear, 3000);
-
-
-            // --- LÓGICA DE AUDIO (VIBRACIÓN) ---
-            function iniciarAudio() {{
+            function iniciarReproduccion() {{
                 if (!player.src || player.src === window.location.href) return;
-                if (!audioContext) {{
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    analyser = audioContext.createAnalyser();
-                    source = audioContext.createMediaElementSource(player);
-                    source.connect(analyser);
-                    analyser.connect(audioContext.destination);
-                    analyser.fftSize = 64; 
-                    dataArray = new Uint8Array(analyser.frequencyBinCount);
-                }}
-                if (audioContext.state === 'suspended') audioContext.resume();
 
+                // 1. Configurar Audio Context (Necesario para analizar volumen)
+                if (!audioContext) {{
+                    try {{
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        analyser = audioContext.createAnalyser();
+                        const source = audioContext.createMediaElementSource(player);
+                        source.connect(analyser);
+                        analyser.connect(audioContext.destination);
+                        analyser.fftSize = 64; // Precisión del análisis
+                        dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    }} catch (e) {{ console.log("Error audio context:", e); }}
+                }}
+
+                // 2. Intentar reproducir
                 player.play().then(() => {{
-                    btn.style.display = 'none';
-                    hablando = true;
-                    detectarVoz();
-                }}).catch(e => {{ btn.style.display = 'block'; }});
+                    btn.style.display = 'none'; // Ocultar botón si funciona
+                    if (audioContext.state === 'suspended') audioContext.resume();
+                    animacionActiva = true;
+                    sincronizarLabios();
+                }}).catch(error => {{
+                    console.log("Autoplay bloqueado. Mostrando botón.");
+                    btn.style.display = 'block'; // Mostrar botón si falla
+                }});
             }}
 
-            function detectarVoz() {{
-                if (player.paused || !hablando) {{
-                    robot.classList.remove('hablando-activo');
+            // --- EL CEREBRO DE LA SINCRONIZACIÓN ---
+            function sincronizarLabios() {{
+                if (!animacionActiva || player.paused) {{
+                    boca.style.opacity = 0; // Cerrar boca si no suena
                     return;
                 }}
-                requestAnimationFrame(detectarVoz);
-                analyser.getByteFrequencyData(dataArray);
+                
+                requestAnimationFrame(sincronizarLabios);
 
-                // Calcular volumen promedio
-                let suma = 0;
-                for(let i = 0; i < dataArray.length; i++) suma += dataArray[i];
-                let promedio = suma / dataArray.length;
+                // Leer volumen actual
+                if (analyser) {{
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    let suma = 0;
+                    // Promediar frecuencias bajas (donde está la voz humana)
+                    for(let i = 0; i < dataArray.length; i++) {{
+                        suma += dataArray[i];
+                    }}
+                    let volumen = suma / dataArray.length; // Valor entre 0 y 255
 
-                // UMBRAL: Si el volumen supera 30, activa la vibración
-                if (promedio > 30) {{
-                    robot.classList.add('hablando-activo');
-                }} else {{
-                    robot.classList.remove('hablando-activo');
+                    // Convertir volumen a Opacidad (0.0 a 1.0)
+                    // Dividimos por 80 para que sea sensible
+                    let apertura = volumen / 80; 
+                    
+                    // Limitar extremos
+                    if (apertura > 1) apertura = 1;
+                    if (apertura < 0.1) apertura = 0; // Silencio = boca cerrada
+
+                    boca.style.opacity = apertura;
                 }}
             }}
+
+            // Eventos
+            player.onended = () => {{ animacionActiva = false; boca.style.opacity = 0; }};
             
-            player.onended = () => {{ hablando = false; robot.classList.remove('hablando-activo'); }};
-            {start_script}
+            // Intentar arranque automático
+            {trigger_js}
+
         </script>
     </body>
     </html>
     """
-    components.html(html_code, height=450)
+    components.html(html_code, height=420)
 
 # --- TÍTULO ---
 st.title("🤖 Espacio de Escucha Escolar")
@@ -223,7 +190,7 @@ try:
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-flash-latest')
 except Exception as e:
-    st.error("Revisa tu API Key.")
+    st.error("Error de conexión.")
     st.stop()
 
 # --- INSTRUCCIONES ---
@@ -237,7 +204,7 @@ Actúa como un orientador escolar empático.
 # --- BARRA LATERAL ---
 with st.sidebar:
     st.header("Configuración")
-    st.info("🔊 Sube el volumen.")
+    st.info("🔊 Si no escuchas nada, pulsa el botón rojo que aparecerá sobre el robot.")
 
 # --- CHAT ---
 if "mensajes" not in st.session_state:
@@ -267,11 +234,4 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    # Usamos la nueva marioneta
-    mostrar_marioneta_avanzada(texto_para_reproducir)
-
-with col2:
-    container = st.container(height=450)
-    for m in st.session_state.mensajes:
-        with container.chat_message(m["role"]):
-            st.markdown(m["content"])
+    #
