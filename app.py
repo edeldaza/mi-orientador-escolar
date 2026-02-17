@@ -234,4 +234,11 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    #
+    # Llamamos al componente
+    mostrar_avatar_definitivo(texto_para_reproducir)
+
+with col2:
+    container = st.container(height=450)
+    for m in st.session_state.mensajes:
+        with container.chat_message(m["role"]):
+            st.markdown(m["content"])
