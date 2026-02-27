@@ -131,30 +131,55 @@ for m in st.session_state.mensajes:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# --- 8. RESPUESTA ---
+# --- 8. RESPUESTA (AHORA CON MEMORIA Y REGLAS ESTRICTAS) ---
 if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user":
     if model:
         with st.spinner("El orientador está pensando..."):
             try:
-                chat = model.start_chat(history=[])
-                prompt = f"""
-                Eres el Orientador Virtual de la Institución Educativa Rural Hugues Manuel Lacouture (I.E.R. Hugues Manuel Lacouture).
-                
-                Debes seguir estas 4 reglas estrictamente:
+                # 1. PREPARAMOS LAS REGLAS DEL COLEGIO
+                reglas_sistema = """
+                INSTRUCCIONES ESTRICTAS PARA TI:
                 1. IDENTIDAD: Si te preguntan tu nombre, quién eres, cómo te llamas o qué haces, responde siempre que eres el "Orientador Virtual de la Institución Educativa Rural Hugues Manuel Lacouture".
                 2. TONO: Sé extremadamente amable, cálido, empático y comprensivo. Haz que el estudiante se sienta escuchado, seguro y sin ser juzgado.
-                3. BREVEDAD: Tus respuestas deben ser cortas y directas (máximo 2 o 5 frases).
+                3. BREVEDAD: Tus respuestas deben ser cortas y directas (máximo 2 o 3 frases).
                 4. 🚨 EMERGENCIA VITAL: Si detectas que el estudiante menciona o insinúa ideación suicida, autolesiones, abuso, depresión severa o cualquier situación de peligro grave, DETÉN el consejo regular y dile de forma muy empática que no está solo, y que DEBE pedir ayuda urgente comunicándose con la profesional a cargo: ELIANYS PLATA al número 3002431343.
-
-                Mensaje del estudiante: {st.session_state.mensajes[-1]['content']}
+                5. Cada vez que pronuncies Hugues para que se escuche bien lo debes pronunciar a la fransesa
+                -----------------
                 """
-                response = chat.send_message(prompt)
+
+                # 2. CONSTRUIMOS LA MEMORIA (HISTORIAL) PARA LA IA
+                historial_gemini = []
+                for i, msg in enumerate(st.session_state.mensajes[:-1]): # Tomamos todos menos el último
+                    # Convertimos los roles de Streamlit a los roles que entiende Google
+                    rol_ia = "user" if msg["role"] == "user" else "model"
+                    contenido = msg["content"]
+                    
+                    # Le inyectamos las reglas ocultas solo al primerísimo mensaje para que no las olvide
+                    if i == 0 and rol_ia == "user":
+                        contenido = reglas_sistema + "\nMENSAJE DEL ESTUDIANTE: " + contenido
+                        
+                    historial_gemini.append({"role": rol_ia, "parts": [contenido]})
+
+                # 3. INICIAMOS EL CHAT PASÁNDOLE LA MEMORIA
+                chat = model.start_chat(history=historial_gemini)
+                
+                # 4. PREPARAMOS EL MENSAJE ACTUAL
+                mensaje_actual = st.session_state.mensajes[-1]['content']
+                
+                # Si es el primer mensaje de toda la charla, le pegamos las reglas aquí
+                if len(st.session_state.mensajes) == 1:
+                    mensaje_actual = reglas_sistema + "\nMENSAJE DEL ESTUDIANTE: " + mensaje_actual
+                
+                # 5. ENVIAMOS Y RECIBIMOS RESPUESTA
+                response = chat.send_message(mensaje_actual)
                 texto_resp = response.text
                 
+                # Guardamos y mostramos en pantalla
                 st.session_state.mensajes.append({"role": "assistant", "content": texto_resp})
                 with st.chat_message("assistant"):
                     st.markdown(texto_resp)
                 
+                # Generamos la voz y animación
                 if modo_voz:
                     tts = gTTS(text=texto_resp, lang='es')
                     audio_buffer = BytesIO()
@@ -167,13 +192,12 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
             except Exception as e:
                 st.error(f"Ocurrió un error técnico: {e}")
     else:
-        st.error("⚠️ No se encontró ningún modelo de IA disponible. Verifica tu API Key o intenta más tarde.")
-
+        st.error("⚠️ No se encontró ningún modelo de IA disponible. Verifica tu API Key.")
 
 # --- 9. BOTÓN WHATSAPP MEJORADO (CON TEXTO Y MÁS ARRIBA) ---
 def boton_whatsapp():
     # ⚠️ CAMBIA ESTE NÚMERO POR EL TUYO ⚠️
-    numero_telefono = "573002431343" 
+    numero_telefono = "57300243134" 
     
     mensaje = "Hola, necesito orientación escolar."
     url_wa = f"https://wa.me/{numero_telefono}?text={mensaje.replace(' ', '%20')}"
@@ -182,18 +206,18 @@ def boton_whatsapp():
     <style>
         .boton-flotante {{
             position: fixed;
-            bottom: 150px; /* MÁS ARRIBA: Para que no estorbe al teclado del celular */
+            bottom: 150px;
             right: 20px;
             background-color: #25d366;
             color: white !important;
-            padding: 12px 25px; /* Relleno para que quepa el texto */
-            border-radius: 50px; /* Bordes redondos tipo píldora */
+            padding: 12px 25px;
+            border-radius: 50px;
             text-decoration: none;
             box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
             z-index: 10000;
             display: flex;
             align-items: center;
-            gap: 10px; /* Espacio entre icono y texto */
+            gap: 10px;
             font-family: sans-serif;
             font-weight: bold;
             transition: transform 0.3s;
