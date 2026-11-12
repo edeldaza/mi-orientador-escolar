@@ -647,7 +647,8 @@ def preparar_texto_para_voz(texto):
     return texto_limpio.strip()
 
 async def _generar_audio_async(texto, voz):
-    communicate = edge_tts.Communicate(texto=texto, voice=voz, rate="+0%", pitch="+0Hz")
+    # Aquí se corrigió "texto=" por "text="
+    communicate = edge_tts.Communicate(text=texto, voice=voz, rate="+0%", pitch="+0Hz")
     audio_bytes = b""
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
