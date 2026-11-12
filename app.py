@@ -1,7 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
-from gtts import gTTS
-from io import BytesIO
+import edge_tts
+import asyncio
 import base64
 import re
 import streamlit.components.v1 as components
@@ -15,8 +15,6 @@ st.set_page_config(
 )
 
 # --- 2. RECURSOS VISUALES ---
-URL_CERRADA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima1.png?raw=true"
-URL_ABIERTA = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima2.png?raw=true"
 URL_ESCUDO = "https://github.com/edeldaza/mi-orientador-escolar/blob/main/ima3.png?raw=true"
 
 # --- 3. ESTILOS MODERNOS (CSS) ---
@@ -163,6 +161,14 @@ with st.sidebar:
     st.write("---")
     modo_voz = st.toggle("🔊 Escuchar voz del orientador", value=True)
     
+    # Selector de voz neuronal colombiana
+    opciones_voz = {
+        "👩‍🏫 Salomé (Femenina - Colombia)": "es-CO-SalomeNeural",
+        "👨‍🏫 Gonzalo (Masculina - Colombia)": "es-CO-GonzaloNeural"
+    }
+    voz_elegida_label = st.selectbox("🎙️ Tipo de voz:", list(opciones_voz.keys()), disabled=not modo_voz)
+    voz_codigo = opciones_voz[voz_elegida_label]
+    
     # Botón de privacidad para computadores compartidos
     if st.button("🗑️ Borrar conversación (Privacidad)"):
         st.session_state.mensajes = []
@@ -181,7 +187,7 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
-# --- 7. FUNCIÓN DEL AVATAR CON ANIMACIÓN ---
+# --- 7. FUNCIÓN DEL ROBOT NATIVO CON SINCRONIZACIÓN DE VOZ REAL (60 FPS) ---
 def mostrar_avatar(audio_bytes=None):
     b64_audio = ""
     estado_texto = "Escuchándote atentamente..."
@@ -192,18 +198,23 @@ def mostrar_avatar(audio_bytes=None):
     html = f"""
     <style>
         @keyframes float {{
-            0% {{ transform: translateY(0px); }}
-            50% {{ transform: translateY(-5px); }}
-            100% {{ transform: translateY(0px); }}
+            0%, 100% {{ transform: translateY(0px) rotate(0deg); }}
+            50% {{ transform: translateY(-7px) rotate(1deg); }}
+        }}
+        @keyframes blink {{
+            0%, 92%, 100% {{ transform: scaleY(1); }}
+            96% {{ transform: scaleY(0.08); }}
         }}
         .avatar-card {{
-            background: linear-gradient(180deg, #ffffff 0%, #f4f8fb 100%);
-            padding: 15px;
-            border-radius: 20px;
+            background: linear-gradient(180deg, #ffffff 0%, #f0f6ff 100%);
+            padding: 18px 15px;
+            border-radius: 22px;
             text-align: center;
-            box-shadow: 0 8px 20px rgba(0, 40, 85, 0.08);
-            border: 1px solid #e1e8ed;
-            font-family: sans-serif;
+            box-shadow: 0 8px 24px rgba(0, 40, 85, 0.08);
+            border: 1px solid #dce6f2;
+            font-family: 'Poppins', sans-serif;
+            position: relative;
+            overflow: hidden;
         }}
         .status-badge {{
             display: inline-flex;
@@ -213,9 +224,9 @@ def mostrar_avatar(audio_bytes=None):
             color: #137333;
             font-size: 12px;
             font-weight: 600;
-            padding: 4px 12px;
+            padding: 5px 14px;
             border-radius: 20px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }}
         .dot {{
             width: 8px;
@@ -224,48 +235,268 @@ def mostrar_avatar(audio_bytes=None):
             border-radius: 50%;
             display: inline-block;
         }}
-        .avatar-container {{
+        .robot-stage {{
             position: relative;
-            width: 190px;
-            height: 230px;
+            width: 200px;
+            height: 210px;
             margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        #voice-aura {{
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, #00b4d8 0%, rgba(0,180,216,0) 70%);
+            border-radius: 50%;
+            opacity: 0.2;
+            transition: transform 0.05s ease-out, opacity 0.05s ease-out;
+        }}
+        .robot-wrapper {{
+            position: relative;
+            z-index: 2;
             animation: float 4s ease-in-out infinite;
         }}
+        .robot-head {{
+            width: 136px;
+            height: 112px;
+            background: linear-gradient(145deg, #ffffff, #e6eef8);
+            border: 4px solid #002855;
+            border-radius: 38px;
+            position: relative;
+            box-shadow: 0 10px 20px rgba(0, 40, 85, 0.12), inset 0 -4px 8px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        .antenna {{
+            width: 6px;
+            height: 20px;
+            background: #002855;
+            margin: 0 auto;
+            position: relative;
+        }}
+        .antenna-ball {{
+            width: 16px;
+            height: 16px;
+            background: #FFC72C;
+            border: 3px solid #002855;
+            border-radius: 50%;
+            position: absolute;
+            top: -12px;
+            left: -8px;
+            box-shadow: 0 0 10px #FFC72C;
+        }}
+        .ear {{
+            position: absolute;
+            width: 14px;
+            height: 42px;
+            background: #FFC72C;
+            border: 3px solid #002855;
+            border-radius: 10px;
+            top: 32px;
+        }}
+        .ear.left {{ left: -16px; }}
+        .ear.right {{ right: -16px; }}
+        .face-screen {{
+            width: 108px;
+            height: 80px;
+            background: #0a192f;
+            border-radius: 26px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding-top: 8px;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.5);
+        }}
+        .eyes-row {{
+            display: flex;
+            gap: 26px;
+            margin-bottom: 12px;
+        }}
+        .eye {{
+            width: 18px;
+            height: 22px;
+            background: #00e5ff;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #00e5ff;
+            animation: blink 4.5s infinite;
+            position: relative;
+        }}
+        .eye::after {{
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 4px;
+            right: 4px;
+        }}
+        #robot-mouth {{
+            width: 34px;
+            height: 6px;
+            background: #00e5ff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px #00e5ff;
+            transition: height 0.04s ease-out, width 0.04s ease-out, border-radius 0.04s;
+        }}
+        .eq-container {{
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 4px;
+            height: 22px;
+            margin-top: 8px;
+        }}
+        .eq-bar {{
+            width: 4px;
+            height: 4px;
+            background: #004e92;
+            border-radius: 2px;
+            transition: height 0.05s ease;
+        }}
+        #replay-btn {{
+            display: none;
+            margin: 8px auto 0;
+            background: #004e92;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+        }}
     </style>
+
     <div class="avatar-card">
         <div class="status-badge"><span class="dot"></span> <span id="status-text">{estado_texto}</span></div>
-        <div class="avatar-container">
-            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-                        background-image: url('{URL_CERRADA}'); background-size: contain; background-repeat: no-repeat; background-position: center;"></div>
-            <div id="mouth" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-                        background-image: url('{URL_ABIERTA}'); background-size: contain; background-repeat: no-repeat; background-position: center;
-                        opacity: 0; transition: opacity 0.08s;"></div>
+        
+        <div class="robot-stage">
+            <div id="voice-aura"></div>
+            <div class="robot-wrapper">
+                <div class="antenna"><div class="antenna-ball"></div></div>
+                <div class="robot-head">
+                    <div class="ear left"></div>
+                    <div class="ear right"></div>
+                    <div class="face-screen">
+                        <div class="eyes-row">
+                            <div class="eye"></div>
+                            <div class="eye"></div>
+                        </div>
+                        <div id="robot-mouth"></div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div style="font-size: 13px; color: #002855; font-weight: bold; margin-top: 8px;">Orientador Virtual</div>
-        <audio id="player" autoplay style="display: none;">
+
+        <div class="eq-container">
+            <div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div>
+            <div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+        </div>
+        <div style="font-size: 13px; color: #002855; font-weight: 700; margin-top: 4px;">Orientador Virtual I.E.R.</div>
+        <button id="replay-btn" onclick="iniciarAudioManual()">🔊 Escuchar respuesta</button>
+
+        <audio id="player" style="display: none;">
             <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
         </audio>
     </div>
+
     <script>
-        var p = document.getElementById("player");
-        var m = document.getElementById("mouth");
-        var st = document.getElementById("status-text");
-        var i;
-        if ("{b64_audio}" !== "") {{
-            p.onplay = () => {{
-                st.innerText = "Hablando contigo...";
-                i = setInterval(() => {{
-                    m.style.opacity = (m.style.opacity == "0" ? "1" : "0");
-                }}, 180);
+        const b64Audio = "{b64_audio}";
+        const audio = document.getElementById("player");
+        const mouth = document.getElementById("robot-mouth");
+        const aura = document.getElementById("voice-aura");
+        const statusText = document.getElementById("status-text");
+        const replayBtn = document.getElementById("replay-btn");
+        const bars = document.querySelectorAll(".eq-bar");
+
+        let audioCtx;
+        let analyser;
+        let dataArray;
+        let animId;
+        let isInitialized = false;
+
+        function inicializarAnalizador() {{
+            if (isInitialized) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            const source = audioCtx.createMediaElementSource(audio);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 64;
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            isInitialized = true;
+        }}
+
+        function animarHabla() {{
+            analyser.getByteFrequencyData(dataArray);
+            
+            let sum = 0;
+            for (let i = 2; i < 15; i++) {{
+                sum += dataArray[i];
+            }}
+            let avg = sum / 13;
+
+            let mouthHeight = Math.max(5, Math.min(28, (avg / 150) * 28));
+            let mouthWidth = 34 - (mouthHeight * 0.25);
+            mouth.style.height = mouthHeight + "px";
+            mouth.style.width = mouthWidth + "px";
+            mouth.style.borderRadius = mouthHeight > 12 ? "50%" : "10px";
+
+            let scaleAura = 1 + (avg / 255) * 0.45;
+            aura.style.transform = "scale(" + scaleAura + ")";
+            aura.style.opacity = Math.min(0.85, 0.2 + (avg / 255));
+
+            bars.forEach((bar, idx) => {{
+                let val = dataArray[idx + 2] || 0;
+                let h = Math.max(4, (val / 255) * 22);
+                bar.style.height = h + "px";
+            }});
+
+            animId = requestAnimationFrame(animarHabla);
+        }}
+
+        function iniciarAudioManual() {{
+            replayBtn.style.display = "none";
+            inicializarAnalizador();
+            if (audioCtx && audioCtx.state === "suspended") {{
+                audioCtx.resume();
+            }}
+            audio.play();
+        }}
+
+        if (b64Audio !== "") {{
+            audio.onplay = () => {{
+                inicializarAnalizador();
+                if (audioCtx && audioCtx.state === "suspended") {{
+                    audioCtx.resume();
+                }}
+                statusText.innerText = "Hablando contigo...";
+                animarHabla();
             }};
-            p.onended = () => {{
-                clearInterval(i);
-                m.style.opacity = "0";
-                st.innerText = "Escuchándote atentamente...";
+
+            audio.onended = () => {{
+                cancelAnimationFrame(animId);
+                mouth.style.height = "6px";
+                mouth.style.width = "34px";
+                mouth.style.borderRadius = "10px";
+                aura.style.transform = "scale(1)";
+                aura.style.opacity = "0.2";
+                bars.forEach(bar => bar.style.height = "4px");
+                statusText.innerText = "Escuchándote atentamente...";
+                replayBtn.style.display = "inline-block";
+                replayBtn.innerText = "🔄 Volver a escuchar";
             }};
-            p.play().catch(e => {{
-                console.log("Autoplay prevenido por el navegador:", e);
-                st.innerText = "En línea para ayudarte";
+
+            inicializarAnalizador();
+            audio.play().catch(e => {{
+                statusText.innerText = "Respuesta lista";
+                replayBtn.style.display = "inline-block";
             }});
         }}
     </script>
@@ -405,15 +636,34 @@ def mostrar_ejercicio_respiracion():
     """
     return html_respiracion
 
-# --- 9. LIMPIEZA DE TEXTO Y FONÉTICA FRANCESA PARA EL AUDIO ---
+# --- 9. MOTOR DE VOZ NEURONAL COLOMBIANA (EDGE-TTS) ---
 def preparar_texto_para_voz(texto):
-    # Reemplazamos "Hugues" por su pronunciación francesa aproximada ("Iug") solo para el audio
+    # Reemplazamos "Hugues" por su pronunciación francesa aproximada ("Iug")
     texto_limpio = re.sub(r'\bHugues\b', 'Iug', texto, flags=re.IGNORECASE)
-    # Quitamos símbolos de formato Markdown
+    # Quitamos caracteres de formato Markdown
     texto_limpio = re.sub(r'[\*\#\_\~]', '', texto_limpio)
-    # Quitamos emojis para que el lector de voz no los lea en voz alta
+    # Quitamos emojis para que la voz no los lea
     texto_limpio = re.sub(r'[^\w\s,.;:¿?¡!áéíóúÁÉÍÓÚñÑüÜ()-]', '', texto_limpio)
-    return texto_limpio
+    return texto_limpio.strip()
+
+async def _generar_audio_async(texto, voz):
+    communicate = edge_tts.Communicate(texto=texto, voice=voz, rate="+0%", pitch="+0Hz")
+    audio_bytes = b""
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            audio_bytes += chunk["data"]
+    return audio_bytes
+
+def generar_voz_colombiana(texto, voz):
+    texto_limpio = preparar_texto_para_voz(texto)
+    if not texto_limpio:
+        return None
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(_generar_audio_async(texto_limpio, voz))
+    finally:
+        loop.close()
 
 # --- 10. CONEXIÓN INTELIGENTE CON GEMINI ---
 @st.cache_resource
@@ -514,7 +764,7 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
                     INSTRUCCIONES ESTRICTAS PARA TI:
                     1. IDENTIDAD: Si te preguntan tu nombre, quién eres, cómo te llamas o qué haces, responde siempre que eres el "Orientador Virtual de la Institución Educativa Rural Hugues Manuel Lacouture".
                     2. CONTEXTO EMOCIONAL: El estudiante indicó en el termómetro emocional que hoy se siente: "{estado_animo}". Tenlo muy en cuenta para adaptar tu calidez.
-                    3. TONO: Sé extremadamente amable, cálido, empático y comprensivo. Haz que el estudiante se sienta escuchado, seguro y sin ser juzgado. Termina con una pregunta suave que invite a seguir conversando si aplica.
+                    3. TONO: Sé extremadamente amable, cálido, empático y comprensivo. Usa un español colombiano natural, cercano y respetuoso. Haz que el estudiante se sienta escuchado, seguro y sin ser juzgado. Termina con una pregunta suave que invite a seguir conversando si aplica.
                     4. BREVEDAD: Tus respuestas deben ser cortas y directas (máximo 2 o 3 frases).
                     5. 🚨 EMERGENCIA VITAL: Si detectas que el estudiante menciona o insinúa ideación suicida, autolesiones, abuso, depresión severa o cualquier situación de peligro grave, DETÉN el consejo regular y dile de forma muy empática que no está solo, y que DEBE pedir ayuda urgente comunicándose con la profesional a cargo: Elianys Plata al número 300-2431-343.
                     -----------------
@@ -539,14 +789,9 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
 
                     st.session_state.mensajes.append({"role": "assistant", "content": texto_resp})
 
-                    # Generar audio limpio y con pronunciación francesa de "Hugues"
+                    # Generar audio neuronal colombiano con Edge-TTS
                     if modo_voz:
-                        texto_para_voz = preparar_texto_para_voz(texto_resp)
-                        tts = gTTS(text=texto_para_voz, lang='es')
-                        audio_buffer = BytesIO()
-                        tts.write_to_fp(audio_buffer)
-                        audio_buffer.seek(0)
-                        st.session_state.ultimo_audio = audio_buffer.read()
+                        st.session_state.ultimo_audio = generar_voz_colombiana(texto_resp, voz_codigo)
                     else:
                         st.session_state.ultimo_audio = None
 
@@ -557,7 +802,7 @@ if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user"
     else:
         st.error("⚠️ No se encontró ningún modelo de IA disponible. Verifica tu API Key.")
 
-# Renderizamos el avatar siempre visible en la columna izquierda
+# Renderizamos el robot siempre visible en la columna izquierda
 with col_avatar:
     components.html(mostrar_avatar(st.session_state.ultimo_audio), height=340)
     st.session_state.ultimo_audio = None
