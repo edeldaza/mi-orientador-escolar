@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import google.generativeai as genai
 import edge_tts
@@ -647,7 +648,6 @@ def preparar_texto_para_voz(texto):
     return texto_limpio.strip()
 
 async def _generar_audio_async(texto, voz):
-    # Aquí se corrigió "texto=" por "text="
     communicate = edge_tts.Communicate(text=texto, voice=voz, rate="+0%", pitch="+0Hz")
     audio_bytes = b""
     async for chunk in communicate.stream():
@@ -666,11 +666,17 @@ def generar_voz_colombiana(texto, voz):
     finally:
         loop.close()
 
-# --- 10. CONEXIÓN INTELIGENTE CON GEMINI ---
+# --- 10. CONEXIÓN INTELIGENTE CON GEMINI (LECTURA DIRECTA DESDE NORTHFLANK) ---
 @st.cache_resource
 def obtener_modelo_disponible():
     try:
-        api_key = st.secrets["GOOGLE_API_KEY"]
+        # Lee directamente la variable GOOGLE_API_KEY de Northflank sin buscar secrets.toml
+        api_key = os.environ.get("GOOGLE_API_KEY")
+
+        if not api_key:
+            st.error("⚠️ No se encontró la variable GOOGLE_API_KEY en el apartado Environment de Northflank.")
+            return None
+
         genai.configure(api_key=api_key)
         
         lista_modelos = []
