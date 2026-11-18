@@ -9,7 +9,7 @@ import streamlit.components.v1 as components
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
-    page_title="Orientación I.E.R. Hugues Manuel Lacouture",
+    page_title="ArmonIA • Orientación I.E.R. Hugues Manuel Lacouture",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -131,7 +131,7 @@ st.markdown(f"""
         <img src="{URL_ESCUDO}" alt="Escudo IER">
         <div>
             <div class="hero-title">Institución Educativa Rural<br>Hugues Manuel Lacouture</div>
-            <p class="hero-subtitle">🌱 Espacio Seguro de Orientación Escolar • Confidencial y Gratuito</p>
+            <p class="hero-subtitle">🌱 ArmonIA • Espacio Seguro de Orientación Escolar • Confidencial y Gratuito</p>
         </div>
     </div>
 """, unsafe_allow_html=True)
@@ -145,7 +145,7 @@ if "ultimo_audio" not in st.session_state:
 # --- 6. BARRA LATERAL INTERACTIVA ---
 with st.sidebar:
     st.markdown("### 👋 ¡Hola, estudiante!")
-    st.caption("Este es un espacio seguro para conversar sobre cómo te sientes, tus estudios o tu futuro.")
+    st.caption("Soy ArmonIA, tu espacio seguro para conversar sobre cómo te sientes, tus estudios o tu futuro.")
     
     # Termómetro emocional
     estado_animo = st.selectbox(
@@ -160,7 +160,7 @@ with st.sidebar:
     )
     
     st.write("---")
-    modo_voz = st.toggle("🔊 Escuchar voz del orientador", value=True)
+    modo_voz = st.toggle("🔊 Escuchar voz de ArmonIA", value=True)
     
     # Selector de voz neuronal colombiana
     opciones_voz = {
@@ -398,7 +398,7 @@ def mostrar_avatar(audio_bytes=None):
             <div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div>
             <div class="eq-bar"></div>
         </div>
-        <div style="font-size: 13px; color: #002855; font-weight: 700; margin-top: 4px;">Orientador Virtual I.E.R.</div>
+        <div style="font-size: 14px; color: #002855; font-weight: 700; margin-top: 4px;">🤖 ArmonIA • Orientador I.E.R.</div>
         <button id="replay-btn" onclick="iniciarAudioManual()">🔊 Escuchar respuesta</button>
 
         <audio id="player" style="display: none;">
@@ -641,6 +641,8 @@ def mostrar_ejercicio_respiracion():
 def preparar_texto_para_voz(texto):
     # Reemplazamos "Hugues" por su pronunciación francesa aproximada ("Iug")
     texto_limpio = re.sub(r'\bHugues\b', 'Iug', texto, flags=re.IGNORECASE)
+    # Aseguramos que "ArmonIA" se pronuncie con tilde natural ("Armonía")
+    texto_limpio = re.sub(r'\bArmonIA\b', 'Armonía', texto_limpio, flags=re.IGNORECASE)
     # Quitamos caracteres de formato Markdown
     texto_limpio = re.sub(r'[\*\#\_\~]', '', texto_limpio)
     # Quitamos emojis para que la voz no los lea
@@ -711,28 +713,28 @@ model = obtener_modelo_disponible()
 col_avatar, col_chat = st.columns([1, 2.3], gap="large")
 
 with col_chat:
-    tab_chat, tab_calma = st.tabs(["💬 Conversar con el Orientador", "🧘 Zona de Calma (Ansiedad y Estrés)"])
+    tab_chat, tab_calma = st.tabs(["💬 Conversar con ArmonIA", "🧘 Zona de Calma (Ansiedad y Estrés)"])
 
     # --- PESTAÑA 1: CHAT ---
     with tab_chat:
         if not st.session_state.mensajes:
-            st.markdown("#### 💬 ¿Sobre qué te gustaría conversar hoy?")
+            st.markdown("#### 💬 ¿Sobre qué te gustaría conversar hoy con ArmonIA?")
             st.caption("Puedes tocar una de estas opciones rápidas o escribir directamente abajo:")
             
             c1, c2 = st.columns(2)
             with c1:
                 if st.button("📚 Me siento estresado con las tareas y exámenes"):
-                    st.session_state.mensajes.append({"role": "user", "content": "Hola, últimamente me siento muy estresado con las tareas y el estudio."})
+                    st.session_state.mensajes.append({"role": "user", "content": "Hola ArmonIA, últimamente me siento muy estresado con las tareas y el estudio."})
                     st.rerun()
                 if st.button("🧭 No sé qué quiero hacer cuando termine el colegio"):
-                    st.session_state.mensajes.append({"role": "user", "content": "Hola, tengo dudas sobre mi futuro y no sé qué estudiar o hacer al salir del colegio."})
+                    st.session_state.mensajes.append({"role": "user", "content": "Hola ArmonIA, tengo dudas sobre mi futuro y no sé qué estudiar o hacer al salir del colegio."})
                     st.rerun()
             with c2:
                 if st.button("🤝 Tuve un problema con un compañero de clase"):
-                    st.session_state.mensajes.append({"role": "user", "content": "Hola, tuve un inconveniente con un compañero y no sé cómo manejarlo."})
+                    st.session_state.mensajes.append({"role": "user", "content": "Hola ArmonIA, tuve un inconveniente con un compañero y no sé cómo manejarlo."})
                     st.rerun()
                 if st.button("💭 Solo necesito desahogarme con alguien"):
-                    st.session_state.mensajes.append({"role": "user", "content": "Hola, hoy no me siento muy bien y quisiera desahogarme un rato."})
+                    st.session_state.mensajes.append({"role": "user", "content": "Hola ArmonIA, hoy no me siento muy bien y quisiera desahogarme un rato."})
                     st.rerun()
 
         contenedor_mensajes = st.container()
@@ -757,7 +759,7 @@ with col_chat:
             """)
 
 # Entrada de texto fija abajo
-if texto_usuario := st.chat_input("Escribe aquí tu mensaje con total confianza..."):
+if texto_usuario := st.chat_input("Escribe aquí tu mensaje para ArmonIA con total confianza..."):
     st.session_state.mensajes.append({"role": "user", "content": texto_usuario})
     st.rerun()
 
@@ -765,11 +767,11 @@ if texto_usuario := st.chat_input("Escribe aquí tu mensaje con total confianza.
 if st.session_state.mensajes and st.session_state.mensajes[-1]["role"] == "user":
     if model:
         with col_chat:
-            with st.spinner("El orientador te está escuchando..."):
+            with st.spinner("ArmonIA te está escuchando..."):
                 try:
                     reglas_sistema = f"""
                     INSTRUCCIONES ESTRICTAS PARA TI:
-                    1. IDENTIDAD: Si te preguntan tu nombre, quién eres, cómo te llamas o qué haces, responde siempre que eres el "Orientador Virtual de la Institución Educativa Rural Hugues Manuel Lacouture".
+                    1. IDENTIDAD: Si te preguntan tu nombre, quién eres, cómo te llamas o qué haces, responde siempre que te llamas "ArmonIA", el Orientador Virtual de la Institución Educativa Rural Hugues Manuel Lacouture.
                     2. CONTEXTO EMOCIONAL: El estudiante indicó en el termómetro emocional que hoy se siente: "{estado_animo}". Tenlo muy en cuenta para adaptar tu calidez.
                     3. TONO: Sé extremadamente amable, cálido, empático y comprensivo. Usa un español colombiano natural, cercano y respetuoso. Haz que el estudiante se sienta escuchado, seguro y sin ser juzgado. Termina con una pregunta suave que invite a seguir conversando si aplica.
                     4. BREVEDAD: Tus respuestas deben ser cortas y directas (máximo 2 o 3 frases).
